@@ -25,7 +25,7 @@
 
   body{
     font-family:var(--font);
-    background:var(--bg); color:var(--text);
+    background:#f5f3f0 !important; color:var(--text);
     min-height:100vh; -webkit-font-smoothing:antialiased;
     padding:20px 0 0;
   }
@@ -246,6 +246,27 @@
     width:20px;height:20px;border-radius:50%;
     background:rgba(0,0,0,.5);color:#fff;border:none;
     cursor:pointer;font-size:11px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .pgm-item img{cursor:pointer;}
+
+  /* Image viewer / lightbox */
+  .img-viewer{
+    position:fixed;inset:0;z-index:9999;
+    background:rgba(0,0,0,.85);
+    display:none;align-items:center;justify-content:center;
+    padding:20px;
+  }
+  .img-viewer.show{display:flex;}
+  .img-viewer img{
+    max-width:100%;max-height:100%;border-radius:8px;
+    object-fit:contain;
+  }
+  .img-viewer-close{
+    position:fixed;top:16px;right:16px;
+    width:40px;height:40px;border-radius:50%;
+    background:rgba(255,255,255,.2);color:#fff;border:none;
+    font-size:20px;cursor:pointer;z-index:10000;
     display:flex;align-items:center;justify-content:center;
   }
 
@@ -971,7 +992,7 @@ function render(){
           </div>
           ${g.photos.length ? `
             <div class="photo-grid-mini">
-              ${g.photos.map((p,j)=>`<div class="pgm-item"><img src="${p}"/><button class="rm" onclick="rmPhoto(${gi},${j})">✕</button></div>`).join('')}
+              ${g.photos.map((p,j)=>`<div class="pgm-item"><img src="${p}" onclick="viewImg('${p}')"/><button class="rm" onclick="rmPhoto(${gi},${j})">✕</button></div>`).join('')}
             </div>
           ` : ''}
         </div>
@@ -1699,7 +1720,7 @@ function renderBoxPhotos(gi,bi){
   if(!grid) return;
   if(!b.photos.length){ grid.innerHTML=''; return; }
   grid.innerHTML = b.photos.map((p,j)=>`
-    <div class="pgm-item"><img src="${p}"/><button class="rm" onclick="rmBoxPhoto(${j})">✕</button></div>
+    <div class="pgm-item"><img src="${p}" onclick="viewImg('${p}')"/><button class="rm" onclick="rmBoxPhoto(${j})">✕</button></div>
   `).join('');
 }
 function compress(src,mw,q,cb){
@@ -1754,6 +1775,24 @@ let tt;function toast(m){const t=document.getElementById('toast');t.textContent=
 load();render();loadSyncCfg();syncPull();
 // 每隔一段时间自动拉取一次
 setInterval(()=>{ if(syncCfg&&syncCfg.token) syncPull(); },30000);
+
+// ===== Image viewer =====
+function viewImg(src){
+  var v=document.getElementById('imgViewer');
+  var img=v.querySelector('img');
+  img.src=src;
+  v.classList.add('show');
+}
+function closeImgViewer(e){
+  if(e) e.stopPropagation();
+  document.getElementById('imgViewer').classList.remove('show');
+}
 </script>
+
+<!-- Image viewer lightbox -->
+<div class="img-viewer" id="imgViewer" onclick="closeImgViewer(event)">
+  <button class="img-viewer-close" onclick="closeImgViewer(event)">✕</button>
+  <img src="" alt="预览" />
+</div>
 </body>
 </html>
