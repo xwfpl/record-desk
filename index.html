@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>小桌 · 记录台 v2</title>
+<title>暖记 · 台</title>
 <style>
   *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
   html{background:#ede5df !important;min-height:100%;}
@@ -15,10 +15,10 @@
     --accent:#7c6a5e; --accent-soft:#efe7e1;
     --pink:#f7e8e1; --pink-deep:#d4a598;
     --border:#e8e3df; --border-light:#f0ece8;
-    --radius:12px; --radius-sm:7px;
-    --shadow:0 2px 10px rgba(124,106,94,.05);
+    --radius:14px; --radius-sm:8px;
+    --shadow:none;
     --font:'Noto Sans CJK SC','PingFang SC','Microsoft YaHei',sans-serif;
-    /* Group color themes */
+    /* Group color themes - 5 distinct colors */
     --c1-bg:#fef3f0; --c1-deep:#d4a598; --c1-bar:#e8a595;
     --c2-bg:#f0f4ed; --c2-deep:#7a9b6e; --c2-bar:#8faa7d;
     --c3-bg:#eef1f6; --c3-deep:#6e86a8; --c3-bar:#7d96ba;
@@ -36,15 +36,14 @@
   .wrap{max-width:580px;margin:0 auto;padding:0 16px 40px;}
 
   /* Top bar */
-  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;}
   .brand{display:flex;align-items:center;gap:8px;}
   .brand-icon{
     font-size:22px;line-height:1;
-    color:#f8b4c4;
+    color:#d4a598;
     display:flex;align-items:center;justify-content:center;
-    filter:drop-shadow(0 2px 4px rgba(248,180,196,.2));
   }
-  .brand-name{font-size:15px;font-weight:700;}
+  .brand-name{font-size:16px;font-weight:700;color:var(--text);letter-spacing:.5px;}
   .header-actions{display:flex;gap:6px;}
   .btn{
     border:none;border-radius:var(--radius-sm);
@@ -52,48 +51,69 @@
     cursor:pointer;transition:all .2s;font-family:var(--font);
     display:inline-flex;align-items:center;gap:4px;white-space:nowrap;
   }
-  .btn-pink{background:#f8b4c4;color:#333;box-shadow:0 3px 0 #e896a8;transition:all .12s;}
-  .btn-pink:hover{transform:translateY(-1px);filter:brightness(1.05);}
-  .btn-pink:active{transform:translateY(2px);box-shadow:0 1px 0 #e896a8;}
+  .btn-pink{background:#f8b4c4;color:#333;transition:all .12s;}
+  .btn-pink:hover{filter:brightness(1.05);}
+  .btn-pink:active{filter:brightness(.95);}
   .btn-ghost{background:#fff;border:1px solid var(--border);color:var(--soft);}
   .btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* Swipe-to-delete wrapper */
+  .swipe-wrap{
+    position:relative;overflow:hidden;margin-bottom:12px;
+  }
+  .swipe-bg{
+    position:absolute;inset:0;
+    background:linear-gradient(135deg,#fce8e6,#f8d0d0);
+    display:flex;align-items:center;justify-content:flex-end;
+    padding-right:20px;color:#e8857d;font-size:13px;font-weight:700;
+    border-radius:var(--radius);
+  }
+  .swipe-content{
+    position:relative;z-index:2;
+    transition:transform .25s ease;
+    background:transparent;
+  }
+  .swipe-content.swiped{transform:translateX(-70px);}
 
   /* Group card — title + data together */
   .group{
     background:var(--card);border:2px solid var(--gbar,var(--c1-bar));
-    border-radius:var(--radius);box-shadow:var(--shadow);
+    border-radius:var(--radius);
     margin-bottom:12px;overflow:hidden;
-    transition:box-shadow .2s;
   }
-  .group:hover{box-shadow:0 4px 16px rgba(124,106,94,.08);}
 
   /* Card header = title row, clickable to collapse */
   .grp-head{
     display:flex;align-items:center;gap:8px;
     padding:12px 16px;cursor:pointer;
-    background:linear-gradient(135deg,var(--ghead-bg,var(--c1-bg)),#fff);
+    background:var(--ghead-bg,var(--c1-bg));
     border-bottom:1px solid var(--border);
     user-select:none;
   }
-  .grp-head:hover{filter:brightness(.98);}
   .grp-head.collapsed .grp-arrow{transform:rotate(-90deg);}
+  .grp-head.collapsed{border-bottom:none;}
   .grp-title{
-    flex:0 0 auto;font-size:15px;font-weight:700;color:var(--text);
+    flex:1 1 auto;font-size:17px;font-weight:700;color:var(--text);
     border:none;background:transparent;outline:none;font-family:var(--font);
-    padding:2px 4px;border-radius:0;min-width:0;width:90px;max-width:90px;
+    padding:2px 4px;border-radius:0;min-width:0;
     transition:all .2s;
   }
   .grp-title.locked{cursor:pointer;}
   .grp-title.unlocked{border-bottom:1.5px solid var(--gdeep,var(--c1-deep));background:rgba(255,255,255,.6);border-radius:4px;cursor:text;}
   .grp-title::placeholder{color:#bdb5af;font-weight:500;font-size:14px;}
-  .grp-spacer{flex:1;}
+  .grp-status-txt{
+    flex:0 0 auto;font-size:12px;font-weight:700;color:var(--gdeep,var(--c1-deep));
+    padding:3px 8px;border-radius:6px;white-space:nowrap;
+    background:rgba(255,255,255,.4);user-select:none;
+  }
+  .grp-spacer{flex:0 0 6px;}
   .grp-date{
     font-size:12px;color:var(--soft);font-weight:600;flex-shrink:0;
-    background:transparent;border:none;outline:none;font-family:var(--font);
-    width:90px;padding:2px;text-align:right;cursor:pointer;
-    transition:all .2s;margin-right:4px;
+    background:rgba(255,255,255,.5);border:none;outline:none;font-family:var(--font);
+    width:70px;padding:3px 6px;text-align:right;cursor:pointer;
+    border-radius:6px;transition:all .2s;margin-right:4px;
   }
-  .grp-date:hover{color:var(--gdeep,var(--c1-deep));}
+  .grp-date:hover{color:var(--gdeep,var(--c1-deep));background:rgba(255,255,255,.8);}
   .grp-sum-mini{
     font-size:14px;font-weight:800;color:var(--gdeep,var(--c1-deep));
     font-variant-numeric:tabular-nums;flex-shrink:0;min-width:24px;text-align:right;
@@ -145,7 +165,7 @@
   .rh-sep4{grid-column:9;}
   .rh-del{grid-column:10;}
   .col-sep{color:var(--soft);font-size:11px;font-weight:600;text-align:center;user-select:none;}
-  .row-num{font-size:10px;color:#c8c2bd;font-weight:600;grid-column:1;flex-shrink:0;text-align:right;}
+  .row-num{font-size:12px;color:#c8c2bd;font-weight:600;grid-column:1;flex-shrink:0;text-align:right;}
   .inp{
     border:none;border-bottom:1.5px dashed #d5cfc9;
     background:transparent;padding:3px 2px;font-size:14px;
@@ -154,13 +174,13 @@
   }
   .inp:focus{border-bottom:1.5px solid #f8b4c4;border-bottom-style:solid;}
   .inp::placeholder{color:#cdc8c3;font-size:13px;}
-  .inp-name{width:100%;min-width:0;font-size:15px;font-weight:600;}
-  .inp-num{width:100%;text-align:center;font-size:13px;font-weight:600;}
-  .inp-price{width:100%;text-align:center;font-size:13px;font-weight:600;}
+  .inp-name{width:100%;min-width:0;font-size:17px;font-weight:600;}
+  .inp-num{width:100%;text-align:center;font-size:16px;font-weight:600;}
+  .inp-price{width:100%;text-align:center;font-size:16px;font-weight:600;}
   .sep{color:var(--soft);font-size:12px;flex-shrink:0;user-select:none;margin:0 -1px;}
   .eq{color:var(--soft);font-size:12px;flex-shrink:0;}
   .total{font-size:16px;font-weight:700;color:var(--accent);text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums;}
-  .row .total{font-size:13px;text-align:center;}
+  .row .total{font-size:16px;text-align:center;}
   .del{
     border:none;background:transparent;color:#d5d0cc;
     font-size:13px;cursor:pointer;width:22px;height:22px;border-radius:6px;
@@ -199,11 +219,10 @@
     background:#b8d4e8;color:#333;border:none;
     padding:6px 14px;font-size:11px;font-weight:700;
     border-radius:var(--radius-sm);cursor:pointer;
-    font-family:var(--font);transition:all .12s;
-    box-shadow:0 3px 0 #96b8d4;
+    font-family:var(--font);transition:filter .12s;
   }
-  .grp-copy:hover{filter:brightness(1.05);transform:translateY(-1px);}
-  .grp-copy:active{transform:translateY(2px);box-shadow:0 1px 0 #96b8d4;}
+  .grp-copy:hover{filter:brightness(1.02);}
+  .grp-copy:active{filter:brightness(.92);}
   .grp-arrow{
     font-size:11px;color:var(--gdeep,var(--c1-deep));transition:transform .25s ease;
     flex-shrink:0;font-weight:700;
@@ -218,10 +237,9 @@
     background:#f8b4c4;color:#fff;
     display:inline-flex;align-items:center;justify-content:center;
     cursor:pointer;position:relative;overflow:hidden;
-    box-shadow:0 3px 10px rgba(248,180,196,.4);
-    transition:transform .15s;
+    transition:filter .15s;
   }
-  .photo-upload-zone:hover{transform:scale(1.08);}
+  .photo-upload-zone:hover{filter:brightness(1.05);}
   .photo-upload-zone input[type="file"]{
     position:absolute;inset:0;opacity:0;cursor:pointer;
     width:100%;height:100%;
@@ -277,13 +295,13 @@
   .new-group{
     display:flex;align-items:center;justify-content:center;gap:6px;
     padding:14px;cursor:pointer;color:#333;
-    font-size:13px;font-weight:700;transition:all .12s;
+    font-size:13px;font-weight:700;transition:filter .12s;
     border:none;border-radius:var(--radius);
-    background:#d4b8e0;box-shadow:0 4px 0 #b896d0;
+    background:#d4b8e0;
     flex:1;
   }
-  .new-group:hover{filter:brightness(1.05);transform:translateY(-1px);}
-  .new-group:active{transform:translateY(2px);box-shadow:0 1px 0 #b896d0;}
+  .new-group:hover{filter:brightness(1.02);}
+  .new-group:active{filter:brightness(.92);}
   .bottom-actions{display:flex;gap:8px;align-items:stretch;}
   .grp-restore-btn{
     padding:14px 18px;cursor:pointer;color:var(--soft);
@@ -298,70 +316,47 @@
   .photo-box-row .photo-upload-zone{margin:0;cursor:pointer;}
   .box-num{
     display:inline-flex;align-items:center;justify-content:center;gap:2px;
-    width:40px;height:40px;border-radius:10px;font-size:15px;font-weight:700;
+    width:30px;height:30px;border-radius:8px;font-size:12px;font-weight:700;
     color:#333;cursor:pointer;
     transition:all .12s;position:relative;flex-shrink:0;
   }
-  .box-num:hover{transform:translateY(-1px);filter:brightness(1.05);}
-  .box-num:active{transform:translateY(2px);box-shadow:none !important;}
-  /* 少女系马卡龙色 - 6种循环，3D立体 */
-  .bn-0{background:#f8b4c4;box-shadow:0 3px 0 #e896a8;}
-  .bn-0:active{box-shadow:0 1px 0 #e896a8 !important;}
-  .bn-1{background:#d4b8e0;box-shadow:0 3px 0 #b896d0;}
-  .bn-1:active{box-shadow:0 1px 0 #b896d0 !important;}
-  .bn-2{background:#b8d4e8;box-shadow:0 3px 0 #96b8d4;}
-  .bn-2:active{box-shadow:0 1px 0 #96b8d4 !important;}
-  .bn-3{background:#b8e0c8;box-shadow:0 3px 0 #96d0a8;}
-  .bn-3:active{box-shadow:0 1px 0 #96d0a8 !important;}
-  .bn-4{background:#ffd166;box-shadow:0 3px 0 #f0b840;}
-  .bn-4:active{box-shadow:0 1px 0 #f0b840 !important;}
-  .bn-5{background:#f8b8d0;box-shadow:0 3px 0 #e896b8;}
-  .bn-5:active{box-shadow:0 1px 0 #e896b8 !important;}
+  .box-num:hover{filter:brightness(1.02);}
+  .box-num:active{filter:brightness(.95);}
+  /* 马卡龙色 - 6种循环，纯色 */
+  .bn-0{background:#f8b4c4;}
+  .bn-1{background:#d4b8e0;}
+  .bn-2{background:#b8d4e8;}
+  .bn-3{background:#b8e0c8;}
+  .bn-4{background:#ffd166;}
+  .bn-5{background:#f8b8d0;}
   .box-num-del{
-    position:absolute;top:-6px;right:-6px;width:18px;height:18px;
+    position:absolute;top:-5px;right:-5px;width:16px;height:16px;
     border-radius:50%;background:#fff;border:1px solid var(--border);
-    color:var(--light);font-size:10px;cursor:pointer;line-height:1;
+    color:var(--light);font-size:9px;cursor:pointer;line-height:1;
     display:flex;align-items:center;justify-content:center;padding:0;
   }
   .box-num-del:hover{color:#d4a5a5;border-color:#d4a5a5;}
   .box-num-add{
     display:inline-flex;align-items:center;justify-content:center;
-    width:40px;height:40px;border-radius:10px;font-size:18px;font-weight:700;
+    width:30px;height:30px;border-radius:8px;font-size:15px;font-weight:700;
     color:#f8b4c4;background:#fff;border:2px dashed #f8d0d8;
     cursor:pointer;transition:all .12s;flex-shrink:0;
   }
-  .box-num-add:hover{color:#fff;border-color:#f8b4c4;background:#f8b4c4;transform:translateY(-1px);}
+  .box-num-add:hover{color:#fff;border-color:#f8b4c4;background:#f8b4c4;}
 
-  /* Status tag - 母表里的状态按钮，3D立体可爱风 */
+  /* Status tag - 纯色填充 */
   .status-tag{
     margin-left:auto;flex-shrink:0;
     padding:10px 22px;border-radius:16px;font-size:14px;font-weight:700;
-    border:none;cursor:pointer;transition:all .12s;font-family:var(--font);
+    border:none;cursor:pointer;transition:filter .12s;font-family:var(--font);
     color:#333;position:relative;
   }
-  .status-tag:hover{transform:translateY(-1px);filter:brightness(1.05);}
-  .status-tag:active{transform:translateY(2px);box-shadow:none !important;}
-  .st-0{
-    background:#f8b4c4;
-    box-shadow:0 4px 0 #e896a8, 0 6px 12px rgba(248,180,196,.35);
-  }
-  .st-0:active{box-shadow:0 1px 0 #e896a8 !important;}
-  .st-1{
-    background:#ffd166;
-    color:#333;
-    box-shadow:0 4px 0 #f0b840, 0 6px 12px rgba(255,209,102,.35);
-  }
-  .st-1:active{box-shadow:0 1px 0 #f0b840 !important;}
-  .st-2{
-    background:#b8d4e8;
-    box-shadow:0 4px 0 #96b8d4, 0 6px 12px rgba(184,212,232,.35);
-  }
-  .st-2:active{box-shadow:0 1px 0 #96b8d4 !important;}
-  .st-3{
-    background:#d4b8e0;
-    box-shadow:0 4px 0 #b896d0, 0 6px 12px rgba(212,184,224,.35);
-  }
-  .st-3:active{box-shadow:0 1px 0 #b896d0 !important;}
+  .status-tag:hover{filter:brightness(1.02);}
+  .status-tag:active{filter:brightness(.92);}
+  .st-0{background:#f8b4c4;}
+  .st-1{background:#ffd166;color:#333;}
+  .st-2{background:#b8d4e8;}
+  .st-3{background:#d4b8e0;}
 
   /* Status picker modal - 弹窗里的选择按钮，简洁小 */
   .st-box{max-width:240px;}
@@ -386,20 +381,12 @@
     cursor:pointer;font-family:var(--font);transition:all .2s;
   }
   .st-cancel:hover{background:var(--accent-soft);color:var(--accent);}
-  .group[data-status="0"]{border-color:#f8b4c4;border-width:2.5px;}
-  .group[data-status="0"] .grp-head{background:linear-gradient(135deg,#fef0f3,#fff);}
-  .group[data-status="1"]{border-color:#ffd166;border-width:2.5px;}
-  .group[data-status="1"] .grp-head{background:linear-gradient(135deg,#fff8e6,#fff);}
-  .group[data-status="2"]{border-color:#b8d4e8;border-width:2.5px;}
-  .group[data-status="2"] .grp-head{background:linear-gradient(135deg,#eef4fa,#fff);}
-  .group[data-status="3"]{border-color:#d4b8e0;border-width:2.5px;}
-  .group[data-status="3"] .grp-head{background:linear-gradient(135deg,#f5eefa,#fff);}
+  /* Status only affects border, header uses theme color */
 
   /* Box Modal */
   .bm-modal{
     background:#fff;border-radius:16px;width:95%;max-width:520px;
     max-height:88vh;display:flex;flex-direction:column;overflow:hidden;
-    box-shadow:0 20px 60px rgba(0,0,0,.18);
     animation:bmPop .25s ease;
   }
   @keyframes bmPop{from{transform:scale(.92);opacity:0;}to{transform:scale(1);opacity:1;}}
@@ -453,27 +440,24 @@
   .bm-copy{
     flex:1;padding:11px;border:1px solid var(--border);border-radius:10px;
     background:#fff;color:var(--soft);font-size:13px;font-weight:700;
-    cursor:pointer;transition:all .12s;
-    box-shadow:0 3px 0 #e0dcd8;
+    cursor:pointer;transition:filter .12s;
   }
-  .bm-copy:hover{border-color:#c8c2bd;color:var(--accent);transform:translateY(-1px);}
-  .bm-copy:active{transform:translateY(2px);box-shadow:0 1px 0 #e0dcd8;}
+  .bm-copy:hover{border-color:#c8c2bd;color:var(--accent);filter:brightness(1.02);}
+  .bm-copy:active{filter:brightness(.95);}
   .bm-fill{
     flex:1;padding:11px;border:none;border-radius:10px;
     background:#ffd166;color:#333;font-size:13px;font-weight:700;
-    cursor:pointer;transition:all .12s;
-    box-shadow:0 3px 0 #f0b840;
+    cursor:pointer;transition:filter .12s;
   }
-  .bm-fill:hover{filter:brightness(1.05);transform:translateY(-1px);}
-  .bm-fill:active{transform:translateY(2px);box-shadow:0 1px 0 #f0b840;}
+  .bm-fill:hover{filter:brightness(1.02);}
+  .bm-fill:active{filter:brightness(.92);}
   .bm-done{
     flex:1;padding:11px;border:none;border-radius:10px;
     background:#f8b4c4;color:#333;font-size:13px;font-weight:700;
     cursor:pointer;transition:all .12s;
-    box-shadow:0 3px 0 #e896a8;
   }
-  .bm-done:hover{filter:brightness(1.05);transform:translateY(-1px);}
-  .bm-done:active{transform:translateY(2px);box-shadow:0 1px 0 #e896a8;}
+  .bm-done:hover{filter:brightness(1.05);}
+  .bm-done:active{filter:brightness(.95);}
 
   .bm-photos{
     padding:10px 16px;border-top:1px solid var(--border-light);
@@ -486,7 +470,7 @@
   .ns-dropdown{
     position:absolute;top:100%;left:0;right:0;z-index:50;
     background:#fff;border:1px solid var(--border);border-radius:8px;
-    box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:160px;overflow-y:auto;
+    max-height:160px;overflow-y:auto;
     display:none;margin-top:2px;
   }
   .ns-dropdown.show{display:block;}
@@ -499,7 +483,7 @@
   .ns-item .ns-qty{color:var(--soft);font-size:11px;margin-left:6px;}
 
   /* Toast */
-  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--text);color:#fff;padding:8px 18px;border-radius:24px;font-size:12px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.12);opacity:0;pointer-events:none;transition:all .3s;z-index:9999;}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--text);color:#fff;padding:8px 18px;border-radius:24px;font-size:12px;font-weight:500;opacity:0;pointer-events:none;transition:all .3s;z-index:9999;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
   /* Confirm Modal */
@@ -514,7 +498,6 @@
   .cfm-box{
     background:#fff;border-radius:16px;padding:24px 24px 16px;
     max-width:300px;width:85%;text-align:center;
-    box-shadow:0 12px 40px rgba(124,106,94,.18);
     transform:scale(.9);transition:transform .25s ease;
   }
   .cfm-bg.show .cfm-box{transform:scale(1);}
@@ -523,7 +506,6 @@
     background:linear-gradient(135deg,#fef0f3,#f8d0d8);
     display:flex;align-items:center;justify-content:center;
     font-size:22px;margin:0 auto 12px;
-    box-shadow:0 4px 14px rgba(248,180,196,.25);
   }
   .cfm-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;}
   .cfm-sub{font-size:12px;color:var(--soft);margin-bottom:18px;}
@@ -535,9 +517,9 @@
   }
   .cfm-cancel{background:var(--bg);color:var(--soft);}
   .cfm-cancel:hover{background:var(--accent-soft);color:var(--accent);}
-  .cfm-ok{background:#f8b4c4;color:#333;box-shadow:0 3px 0 #e896a8;transition:all .12s;}
-  .cfm-ok:hover{filter:brightness(1.05);transform:translateY(-1px);}
-  .cfm-ok:active{transform:translateY(2px);box-shadow:0 1px 0 #e896a8;}
+  .cfm-ok{background:#f8b4c4;color:#333;transition:all .12s;}
+  .cfm-ok:hover{filter:brightness(1.05);}
+  .cfm-ok:active{filter:brightness(.95);}
 
   /* Date Picker Modal */
   .dp-bg{
@@ -550,7 +532,6 @@
   .dp-box{
     background:#fff;border-radius:16px;padding:20px 20px 16px;
     max-width:320px;width:85%;text-align:center;
-    box-shadow:0 12px 40px rgba(124,106,94,.18);
     transform:scale(.9);transition:transform .25s ease;
   }
   .dp-bg.show .dp-box{transform:scale(1);}
@@ -586,9 +567,9 @@
   }
   .dp-cancel{background:var(--bg);color:var(--soft);}
   .dp-cancel:hover{background:var(--accent-soft);color:var(--accent);}
-  .dp-ok{background:#f8b4c4;color:#333;box-shadow:0 3px 0 #e896a8;transition:all .12s;}
-  .dp-ok:hover{filter:brightness(1.05);transform:translateY(-1px);}
-  .dp-ok:active{transform:translateY(2px);box-shadow:0 1px 0 #e896a8;}
+  .dp-ok{background:#f8b4c4;color:#333;transition:all .12s;}
+  .dp-ok:hover{filter:brightness(1.05);}
+  .dp-ok:active{filter:brightness(.95);}
 
   ::-webkit-scrollbar{width:4px;}
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
@@ -601,6 +582,11 @@
       gap:3px;padding-left:6px;padding-right:6px;
     }
     .grp-date{width:80px;}
+    .brand-name{font-size:14px;}
+    .header-actions{gap:4px;}
+    .btn{padding:6px 10px;font-size:11px;}
+    .search-input{font-size:13px;}
+    .ftab{padding:5px 10px;font-size:11px;}
   }
 
   /* Sync settings */
@@ -616,6 +602,80 @@
   .sync-hint{margin-top:10px;font-size:11px;color:var(--soft);line-height:1.6;}
   .sync-hint p{margin:2px 0;}
   #syncStatus{font-size:11px;font-weight:600;}
+
+  /* Search & Filter Bar */
+  .search-bar{
+    margin-bottom:14px;
+  }
+  .search-input-wrap{
+    position:relative;display:flex;align-items:center;
+    background:var(--card);border:1.5px solid var(--border);
+    border-radius:var(--radius-sm);padding:0 10px;
+    transition:border-color .2s;
+    margin-bottom:8px;
+  }
+  .search-input-wrap:focus-within{
+    border-color:var(--accent);
+  }
+  .search-icon{font-size:14px;opacity:.5;flex-shrink:0;}
+  .search-input{
+    flex:1;border:none;outline:none;background:transparent;
+    padding:8px 6px;font-size:14px;font-family:var(--font);
+    color:var(--text);min-width:0;
+  }
+  .search-input::placeholder{color:var(--soft);font-size:13px;}
+  .search-clear{
+    border:none;background:transparent;color:var(--soft);
+    font-size:13px;cursor:pointer;padding:2px 4px;
+    border-radius:4px;flex-shrink:0;
+  }
+  .search-clear:hover{color:var(--accent);background:var(--accent-soft);}
+  .filter-tabs{
+    display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;
+  }
+  .filter-tabs::-webkit-scrollbar{display:none;}
+  .ftab{
+    border:1px solid var(--border);background:var(--card);
+    color:var(--soft);padding:5px 12px;font-size:12px;font-weight:600;
+    border-radius:20px;cursor:pointer;white-space:nowrap;
+    font-family:var(--font);transition:all .2s;flex-shrink:0;
+  }
+  .ftab:hover{border-color:var(--accent);color:var(--accent);}
+  .ftab.active{
+    background:var(--accent);color:#fff;border-color:var(--accent);
+  }
+
+  /* Keyboard shortcuts overlay */
+  .kb-bg{
+    position:fixed;inset:0;background:rgba(61,43,46,.35);
+    display:none;align-items:center;justify-content:center;
+    z-index:300;backdrop-filter:blur(3px);
+    opacity:0;transition:opacity .2s;
+  }
+  .kb-bg.show{display:flex;opacity:1;}
+  .kb-box{
+    background:var(--card);border-radius:16px;padding:24px 24px 20px;
+    max-width:340px;width:85%;text-align:center;
+    transform:scale(.9);transition:transform .25s ease;
+  }
+  .kb-bg.show .kb-box{transform:scale(1);}
+  .kb-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:14px;}
+  .kb-list{text-align:left;display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+  .kb-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;}
+  .kb-row .kb-label{color:var(--soft);}
+  .kb-keys{display:flex;gap:4px;align-items:center;}
+  .kb-key{
+    background:var(--bg);border:1px solid var(--border);
+    border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;
+    color:var(--text);font-family:monospace;
+  }
+  .kb-close{
+    width:100%;border:none;border-radius:10px;padding:10px;
+    background:var(--accent);color:#fff;font-size:13px;font-weight:600;
+    cursor:pointer;font-family:var(--font);transition:all .2s;
+  }
+  .kb-close:hover{filter:brightness(1.05);}
+  .kb-close:active{filter:brightness(.95);}
 </style>
 </head>
 <body>
@@ -624,11 +684,29 @@
 
   <div class="header">
     <div class="brand">
-      <div class="brand-icon">♥</div>
+      <div class="brand-icon">🌸</div>
+      <span class="brand-name">暖记 · 台</span>
     </div>
     <div class="header-actions">
+      <button class="btn btn-ghost" onclick="toggleShortcuts()" title="键盘快捷键 (?)">⌨️</button>
       <button class="btn btn-ghost" onclick="openSyncSettings()" title="同步设置">☁️ <span id="syncStatus">未连接</span></button>
       <button class="btn btn-ghost" onclick="clearAll()">🗑 清空</button>
+    </div>
+  </div>
+
+  <!-- Search & Filter Bar -->
+  <div class="search-bar">
+    <div class="search-input-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchInput" class="search-input" placeholder="搜索产品名称或标题…" oninput="applyFilter()" />
+      <button class="search-clear" id="searchClear" onclick="clearSearch()" style="display:none;">✕</button>
+    </div>
+    <div class="filter-tabs" id="filterTabs">
+      <button class="ftab active" data-filter="-1" onclick="setFilter(-1)">全部</button>
+      <button class="ftab" data-filter="0" onclick="setFilter(0)">未出货</button>
+      <button class="ftab" data-filter="1" onclick="setFilter(1)">已出货</button>
+      <button class="ftab" data-filter="2" onclick="setFilter(2)">已结算</button>
+      <button class="ftab" data-filter="3" onclick="setFilter(3)">已入账</button>
     </div>
   </div>
 
@@ -767,6 +845,8 @@
 let groups = [];
 let trash = [];
 let groupTrash = [];
+let _searchQuery = '';
+let _statusFilter = -1; // -1 = all
 
 function load(){
   try{ const r=localStorage.getItem('xz_v4'); if(r) groups=JSON.parse(r); }catch(e){}
@@ -915,10 +995,25 @@ function render(){
   sortGroupsByDate();
   const c = document.getElementById('groups');
   if(!groups.length) groups=[newGroup()];
-  c.innerHTML = groups.map((g,gi)=>{
+
+  // Get filtered indices (original group indices)
+  const visibleIndices = getFilteredGroupIndices();
+  const hasFilter = _searchQuery || _statusFilter >= 0;
+
+  if(hasFilter && !visibleIndices.length){
+    c.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--soft);font-size:14px;">🔍 没有找到匹配的记录</div>`;
+    const restoreEl = document.getElementById('grpRestore');
+    if(restoreEl) restoreEl.innerHTML = '';
+    return;
+  }
+
+  c.innerHTML = visibleIndices.map(gi=>{
+    const g = groups[gi];
     const t = themes[gi % themes.length];
     return `
-    <div class="group" data-gid="${g.id}" data-status="${g.status}" style="--gbar:${t.bar};--ghead-bg:${t.bg};--gdeep:${t.deep};">
+    <div class="swipe-wrap" data-swi="${gi}">
+      <div class="swipe-bg">← 左滑删除</div>
+      <div class="group swipe-content" data-gid="${g.id}" data-status="${g.status}" style="--gbar:${t.bar};--ghead-bg:${t.bg};--gdeep:${t.deep};">
       <!-- Title + date + sum, all in one row -->
       <div class="grp-head ${g.collapsed?'collapsed':''}" data-ghead="${gi}">
         <span class="grp-arrow">▼</span>
@@ -928,8 +1023,8 @@ function render(){
         <span class="grp-spacer"></span>
         <input class="grp-date" type="text" value="${esc(g.date)}" placeholder="日期" readonly
           onclick="event.stopPropagation();openDatePicker(${gi})" />
+        <span class="grp-status-txt">${['未出货','已出货','已结算','已入账'][g.status]}</span>
         <span class="grp-sum-mini">${grpTotal(g)}</span>
-        <button class="grp-del" onclick="event.stopPropagation();delGroup(${gi})" title="删除">✕</button>
       </div>
       <div class="grp-body ${g.collapsed?'collapsed':''}" data-gbody="${gi}">
         <div class="row-head">
@@ -1000,6 +1095,7 @@ function render(){
           ` : ''}
         </div>
       </div>
+      </div>
     </div>
   `}).join('');
 
@@ -1010,7 +1106,7 @@ function render(){
   }
 
   // Attach click-to-collapse on header (with dblclick detection for title)
-  groups.forEach((g,gi)=>{
+  visibleIndices.forEach(gi=>{
     const head = document.querySelector(`[data-ghead="${gi}"]`);
     if(head){
       let clickTimer=null;
@@ -1042,6 +1138,91 @@ function render(){
         handleGroupFiles(gi,e.dataTransfer.files);
       });
       z.addEventListener('click',e=>{e.stopPropagation();});
+    }
+    // Swipe-to-delete
+    const sw = document.querySelector(`[data-swi="${gi}"]`);
+    if(sw){
+      const content = sw.querySelector('.swipe-content');
+      const bg = sw.querySelector('.swipe-bg');
+      let startX=0, currentX=0, dragging=false;
+
+      // Touch events
+      content.addEventListener('touchstart',(e)=>{
+        startX = e.touches[0].clientX;
+        dragging = true;
+        content.style.transition = 'none';
+      },{passive:true});
+      content.addEventListener('touchmove',(e)=>{
+        if(!dragging) return;
+        currentX = e.touches[0].clientX - startX;
+        if(currentX < 0 && currentX > -80){
+          content.style.transform = `translateX(${currentX}px)`;
+        }
+      },{passive:true});
+      content.addEventListener('touchend',()=>{
+        if(!dragging) return;
+        dragging = false;
+        content.style.transition = 'transform .25s ease';
+        if(currentX < -40){
+          content.classList.add('swiped');
+          content.style.transform = '';
+        } else {
+          content.classList.remove('swiped');
+          content.style.transform = '';
+        }
+        currentX = 0;
+      });
+
+      // Mouse events for desktop
+      content.addEventListener('mousedown',(e)=>{
+        if(e.target.tagName==='INPUT' || e.target.tagName==='BUTTON' || e.target.classList.contains('grp-date')) return;
+        startX = e.clientX;
+        dragging = true;
+        content.style.transition = 'none';
+        const onMove = (ev)=>{
+          if(!dragging) return;
+          currentX = ev.clientX - startX;
+          if(currentX < 0 && currentX > -80){
+            content.style.transform = `translateX(${currentX}px)`;
+          }
+        };
+        const onUp = ()=>{
+          if(!dragging) return;
+          dragging = false;
+          content.style.transition = 'transform .25s ease';
+          if(currentX < -40){
+            content.classList.add('swiped');
+            content.style.transform = '';
+          } else {
+            content.classList.remove('swiped');
+            content.style.transform = '';
+          }
+          currentX = 0;
+          document.removeEventListener('mousemove',onMove);
+          document.removeEventListener('mouseup',onUp);
+        };
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+      });
+
+      // Click on background = delete
+      bg.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        if(content.classList.contains('swiped')){
+          delGroup(gi);
+        }
+      });
+
+      // Click elsewhere = slide back
+      content.addEventListener('click',(e)=>{
+        if(content.classList.contains('swiped') && !e.target.closest('.grp-del')){
+          // Click on content while swiped = slide back
+          if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON'){
+            e.stopPropagation();
+            content.classList.remove('swiped');
+          }
+        }
+      });
     }
   });
 }
@@ -1337,8 +1518,7 @@ function showNameSuggest(inp, type, gi, param2, param3){
   _nsIdx = -1;
   if(!matches.length){ dd.classList.remove('show'); return; }
   dd.innerHTML = matches.map((nm,i)=>{
-    const q = allNames[nm];
-    return `<div class="ns-item" data-name="${esc(nm)}" data-idx="${i}" onmousedown="event.preventDefault();pickNameSuggest('${esc(nm)}')">${esc(nm)}${q?`<span class="ns-qty">×${q}</span>`:''}</div>`;
+    return `<div class="ns-item" data-name="${esc(nm)}" data-idx="${i}" onmousedown="event.preventDefault();pickNameSuggest('${esc(nm)}')">${esc(nm)}</div>`;
   }).join('');
   dd.classList.add('show');
 }
@@ -1406,7 +1586,7 @@ function renderBoxModalList(gi,bi){
           onblur="hideNameSuggest(this)" autocomplete="off" />
         <div class="ns-dropdown"></div>
       </div>
-      <span class="bm-x">×</span>
+      <span class="bm-x">*</span>
       <input class="bm-inp bm-qty" type="number" min="1" placeholder="0" value="${esc(r.qty)}"
         oninput="updBoxRowModal(${gi},${bi},${ri},'qty',this.value)" />
       <span class="bm-sep">|</span>
@@ -1546,6 +1726,7 @@ function attachWheel(el,type){
     const val = parseInt(items[clamped].dataset.val);
     if(type==='y'){ dpY=val; rebuildDays(); }
     if(type==='m'){ dpM=val; rebuildDays(); }
+    if(type==='d'){ dpD=val; }
   };
 }
 
@@ -1576,7 +1757,11 @@ function rebuildDays(){
 function dpConfirm(){
   if(dpGi!==null){
     const newDate = `${dpY}/${dpM}/${dpD}`;
-    groups[dpGi].date = newDate;
+    const targetId = groups[dpGi] ? groups[dpGi].id : null;
+    if(targetId!==null){
+      const idx = groups.findIndex(g=>g.id===targetId);
+      if(idx>=0) groups[idx].date = newDate;
+    }
     save();
     render();
     toast('日期已更新');
@@ -1775,6 +1960,15 @@ function clearAll(){
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 let tt;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2000);}
 
+// Click elsewhere to reset all swiped groups
+document.addEventListener('click',(e)=>{
+  if(!e.target.closest('.swipe-wrap')){
+    document.querySelectorAll('.swipe-content.swiped').forEach(el=>{
+      el.classList.remove('swiped');
+    });
+  }
+});
+
 load();render();loadSyncCfg();syncPull();
 // 每隔一段时间自动拉取一次
 setInterval(()=>{ if(syncCfg&&syncCfg.token) syncPull(); },30000);
@@ -1790,12 +1984,154 @@ function closeImgViewer(e){
   if(e) e.stopPropagation();
   document.getElementById('imgViewer').classList.remove('show');
 }
+
+/* ====== Search & Filter ====== */
+
+function applyFilter(){
+  const inp = document.getElementById('searchInput');
+  _searchQuery = inp.value.trim().toLowerCase();
+  const clearBtn = document.getElementById('searchClear');
+  clearBtn.style.display = _searchQuery ? 'block' : 'none';
+  render();
+}
+
+function setFilter(status){
+  _statusFilter = status;
+  document.querySelectorAll('.ftab').forEach(t=>{
+    t.classList.toggle('active', parseInt(t.dataset.filter)===status);
+  });
+  render();
+}
+
+function clearSearch(){
+  document.getElementById('searchInput').value = '';
+  _searchQuery = '';
+  document.getElementById('searchClear').style.display = 'none';
+  render();
+}
+
+function getFilteredGroups(){
+  return groups.map((g,gi)=>{
+    // Check status filter
+    if(_statusFilter >= 0 && g.status !== _statusFilter) return null;
+    // Check search query
+    if(_searchQuery){
+      const titleMatch = g.title.toLowerCase().includes(_searchQuery);
+      const dateMatch = g.date.toLowerCase().includes(_searchQuery);
+      const rowMatch = g.rows.some(r=>r.name.toLowerCase().includes(_searchQuery));
+      const boxMatch = (g.boxes||[]).some(b=>b.rows.some(r=>r.name.toLowerCase().includes(_searchQuery)));
+      if(!titleMatch && !dateMatch && !rowMatch && !boxMatch) return null;
+    }
+    return gi;
+  }).filter(gi => gi !== null);
+}
+
+function getFilteredGroupIndices(){
+  return getFilteredGroups();
+}
+
+/* ====== Keyboard Shortcuts ====== */
+function toggleShortcuts(){
+  const el = document.getElementById('kbBg');
+  el.classList.toggle('show');
+}
+function closeShortcuts(){
+  document.getElementById('kbBg').classList.remove('show');
+}
+
+document.addEventListener('keydown',(e)=>{
+  // Skip if typing in an input/textarea
+  const tag = e.target.tagName;
+  const isTyping = tag==='INPUT' || tag==='TEXTAREA' || e.target.isContentEditable;
+
+  // Esc: close any modal
+  if(e.key==='Escape'){
+    closeShortcuts();
+    return;
+  }
+
+  // Ctrl/Cmd + S: manual sync
+  if((e.ctrlKey||e.metaKey) && e.key==='s'){
+    e.preventDefault();
+    if(syncCfg && syncCfg.token){
+      syncPush(true);
+      toast('正在同步…');
+    } else {
+      openSyncSettings();
+    }
+    return;
+  }
+
+  // Ctrl/Cmd + N: new group
+  if((e.ctrlKey||e.metaKey) && e.key==='n'){
+    e.preventDefault();
+    addGroup();
+    return;
+  }
+
+  // Ctrl/Cmd + Backspace: clear search
+  if((e.ctrlKey||e.metaKey) && e.key==='Backspace'){
+    if(document.activeElement && document.activeElement.id==='searchInput'){
+      e.preventDefault();
+      clearSearch();
+    }
+    return;
+  }
+
+  // Skip remaining shortcuts if typing
+  if(isTyping) return;
+
+  // ? : show shortcuts
+  if(e.key==='?' || (e.shiftKey && e.key==='/')){
+    e.preventDefault();
+    toggleShortcuts();
+    return;
+  }
+
+  // / : focus search
+  if(e.key==='/'){
+    e.preventDefault();
+    const si = document.getElementById('searchInput');
+    if(si) si.focus();
+    return;
+  }
+
+  // n : new group
+  if(e.key==='n' || e.key==='N'){
+    // Check no modifier
+    if(!e.ctrlKey && !e.metaKey && !e.altKey){
+      // Don't interfere if a modal is open
+      const modalOpen = document.querySelector('.cfm-bg.show, .dp-bg.show, .kb-bg.show, .img-viewer.show');
+      if(!modalOpen){
+        e.preventDefault();
+        addGroup();
+      }
+    }
+  }
+});
 </script>
 
 <!-- Image viewer lightbox -->
 <div class="img-viewer" id="imgViewer" onclick="closeImgViewer(event)">
   <button class="img-viewer-close" onclick="closeImgViewer(event)">✕</button>
   <img src="" alt="预览" />
+</div>
+
+<!-- Keyboard Shortcuts Overlay -->
+<div class="kb-bg" id="kbBg" onclick="if(event.target===this)closeShortcuts()">
+  <div class="kb-box">
+    <div class="kb-title">⌨️ 键盘快捷键</div>
+    <div class="kb-list">
+      <div class="kb-row"><span class="kb-label">新建分组</span><div class="kb-keys"><span class="kb-key">N</span></div></div>
+      <div class="kb-row"><span class="kb-label">搜索聚焦</span><div class="kb-keys"><span class="kb-key">/</span></div></div>
+      <div class="kb-row"><span class="kb-label">显示快捷键</span><div class="kb-keys"><span class="kb-key">?</span></div></div>
+      <div class="kb-row"><span class="kb-label">关闭弹窗</span><div class="kb-keys"><span class="kb-key">Esc</span></div></div>
+      <div class="kb-row"><span class="kb-label">手动同步</span><div class="kb-keys"><span class="kb-key">Ctrl</span><span class="kb-key">S</span></div></div>
+      <div class="kb-row"><span class="kb-label">新建分组</span><div class="kb-keys"><span class="kb-key">Ctrl</span><span class="kb-key">N</span></div></div>
+      <div class="kb-row"><span class="kb-label">清空搜索</span><div class="kb-keys"><span class="kb-key">Ctrl</span><span class="kb-key">⌫</span></div></div>
+    </div>
+    <button class="kb-close" onclick="closeShortcuts()">知道了</button>
+  </div>
 </div>
 </body>
 </html>
