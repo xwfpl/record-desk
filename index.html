@@ -85,7 +85,7 @@
   /* Card header = title row, clickable to collapse */
   .grp-head{
     display:flex;align-items:center;gap:8px;
-    padding:12px 16px;cursor:pointer;
+    padding:12px 8px 12px 16px;cursor:pointer;
     background:var(--ghead-bg,var(--c1-bg));
     border-bottom:1px solid var(--border);
     user-select:none;
@@ -93,7 +93,7 @@
   .grp-head.collapsed .grp-arrow{transform:rotate(-90deg);}
   .grp-head.collapsed{border-bottom:none;}
   .grp-title{
-    flex:1 1 auto;font-size:17px;font-weight:700;color:var(--text);
+    flex:0 1 auto;font-size:17px;font-weight:700;color:var(--text);
     border:none;background:transparent;outline:none;font-family:var(--font);
     padding:2px 4px;border-radius:0;min-width:0;
     transition:all .2s;
@@ -104,6 +104,7 @@
   .grp-status-txt{
     flex:0 0 auto;font-size:13px;font-weight:700;color:var(--gdeep,var(--c1-deep));
     padding:2px 4px;white-space:nowrap;user-select:none;
+    margin-left:auto;
   }
   .grp-spacer{flex:0 0 6px;}
   .grp-date{
