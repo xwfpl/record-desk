@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小桌 · 记录台</title>
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+
+  :root{
+    --bg:#f5f3f0; --card:#fff; --text:#2c2a28; --soft:#9a948e;
+    --accent:#7c6a5e; --accent-soft:#efe7e1;
+    --pink:#f7e8e1; --pink-deep:#d4a598;
+    --border:#e8e3df; --border-light:#f0ece8;
+    --radius:12px; --radius-sm:7px;
+    --shadow:0 2px 10px rgba(124,106,94,.05);
+    --font:'Noto Sans CJK SC','PingFang SC','Microsoft YaHei',sans-serif;
+    /* Group color themes */
+    --c1-bg:#fef3f0; --c1-deep:#d4a598; --c1-bar:#e8a595;
+    --c2-bg:#f0f4ed; --c2-deep:#7a9b6e; --c2-bar:#8faa7d;
+    --c3-bg:#eef1f6; --c3-deep:#6e86a8; --c3-bar:#7d96ba;
+    --c4-bg:#f5f0f5; --c4-deep:#9a7a9e; --c4-bar:#a88ab0;
+    --c5-bg:#f7f2ea; --c5-deep:#b89860; --c5-bar:#c4a66a;
+  }
+
+  body{
+    font-family:var(--font);
+    background:var(--bg); color:var(--text);
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+    padding:20px 0 0;
+  }
+
+  .wrap{max-width:580px;margin:0 auto;padding:0 16px 40px;}
+
+  /* Top bar */
+  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .brand{display:flex;align-items:center;gap:8px;}
+  .brand-icon{
+    font-size:22px;line-height:1;
+    color:#f8b4c4;
+    display:flex;align-items:center;justify-content:center;
+    filter:drop-shadow(0 2px 4px rgba(248,180,196,.2));
+  }
+  .brand-name{font-size:15px;font-weight:700;}
+  .header-actions{display:flex;gap:6px;}
+  .btn{
+    border:none;border-radius:var(--radius-sm);
+    padding:6px 12px;font-size:12px;font-weight:600;
+    cursor:pointer;transition:all .2s;font-family:var(--font);
+    display:inline-flex;align-items:center;gap:4px;white-space:nowrap;
+  }
+  .btn-pink{background:#f8b4c4;color:#333;box-shadow:0 3px 0 #e896a8;transition:all .12s;}
+  .btn-pink:hover{transform:translateY(-1px);filter:brightness(1.05);}
+  .btn-pink:active{transform:translateY(2px);box-shadow:0 1px 0 #e896a8;}
+  .btn-ghost{background:#fff;border:1px solid var(--border);color:var(--soft);}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* Group card — title + data together */
+  .group{
+    background:var(--card);border:2px solid var(--gbar,var(--c1-bar));
+    border-radius:var(--radius);box-shadow:var(--shadow);
+    margin-bottom:12px;overflow:hidden;
+    transition:box-shadow .2s;
+  }
+  .group:hover{box-shadow:0 4px 16px rgba(124,106,94,.08);}
+
+  /* Card header = title row, clickable to collapse */
+  .grp-head{
+    display:flex;align-items:center;gap:8px;
+    padding:12px 16px;cursor:pointer;
+    background:linear-gradient(135deg,var(--ghead-bg,var(--c1-bg)),#fff);
+    border-bottom:1px solid var(--border);
+    user-select:none;
+  }
+  .grp-head:hover{filter:brightness(.98);}
+  .grp-head.collapsed .grp-arrow{transform:rotate(-90deg);}
+  .grp-title{
+    flex:0 0 auto;font-size:15px;font-weight:700;color:var(--text);
+    border:none;background:transparent;outline:none;font-family:var(--font);
+    padding:2px 4px;border-radius:0;min-width:0;width:90px;max-width:90px;
+    transition:all .2s;
+  }
+  .grp-title.locked{cursor:pointer;}
+  .grp-title.unlocked{border-bottom:1.5px solid var(--gdeep,var(--c1-deep));background:rgba(255,255,255,.6);border-radius:4px;cursor:text;}
+  .grp-title::placeholder{color:#bdb5af;font-weight:500;font-size:14px;}
+  .grp-spacer{flex:1;}
+  .grp-date{
+    font-size:12px;color:var(--soft);font-weight:600;flex-shrink:0;
+    background:transparent;border:none;outline:none;font-family:var(--font);
+    width:90px;padding:2px;text-align:right;cursor:pointer;
+    transition:all .2s;margin-right:4px;
+  }
+  .grp-date:hover{color:var(--gdeep,var(--c1-deep));}
+  .grp-sum-mini{
+    font-size:14px;font-weight:800;color:var(--gdeep,var(--c1-deep));
+    font-variant-numeric:tabular-nums;flex-shrink:0;min-width:24px;text-align:right;
+    margin-right:2px;
+  }
+  .grp-del{
+    border:none;background:transparent;color:#c8c2bd;
+    font-size:14px;cursor:pointer;
+    width:24px;height:24px;border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .15s;flex-shrink:0;
+  }
+  .grp-del:hover{background:#fce8e6;color:#e8857d;}
+
+  /* Collapsible body */
+  .grp-body{
+    max-height:2000px;overflow:hidden;
+    transition:max-height .3s ease;
+  }
+  .grp-body.collapsed{max-height:0;}
+
+  /* Rows */
+  .row{
+    display:grid;
+    grid-template-columns:14px 1fr 6px 30px 6px 40px 6px 42px 6px 22px;
+    gap:4px;align-items:center;
+    padding:9px 8px 9px 10px;
+    border-bottom:1px solid var(--border-light);
+    transition:background .15s;font-size:14px;
+  }
+  .row:hover{background:#faf9f6;}
+  .row-head{
+    display:grid;
+    grid-template-columns:14px 1fr 6px 30px 6px 40px 6px 42px 6px 22px;
+    gap:4px;align-items:center;
+    padding:6px 8px 6px 10px;
+    border-bottom:1.5px solid var(--border);
+    font-size:11px;font-weight:600;color:var(--soft);
+    background:var(--ghead-bg,var(--c1-bg));
+  }
+  .rh-num{grid-column:1;text-align:right;}
+  .rh-name{grid-column:2;}
+  .rh-sep1{grid-column:3;}
+  .rh-qty{grid-column:4;text-align:center;}
+  .rh-sep2{grid-column:5;}
+  .rh-price{grid-column:6;text-align:center;}
+  .rh-sep3{grid-column:7;}
+  .rh-total{grid-column:8;text-align:center;}
+  .rh-sep4{grid-column:9;}
+  .rh-del{grid-column:10;}
+  .col-sep{color:var(--soft);font-size:11px;font-weight:600;text-align:center;user-select:none;}
+  .row-num{font-size:10px;color:#c8c2bd;font-weight:600;grid-column:1;flex-shrink:0;text-align:right;}
+  .inp{
+    border:none;border-bottom:1.5px dashed #d5cfc9;
+    background:transparent;padding:3px 2px;font-size:14px;
+    color:var(--text);outline:none;font-family:var(--font);
+    transition:all .2s;border-radius:0;
+  }
+  .inp:focus{border-bottom:1.5px solid #f8b4c4;border-bottom-style:solid;}
+  .inp::placeholder{color:#cdc8c3;font-size:13px;}
+  .inp-name{width:100%;min-width:0;font-size:15px;font-weight:600;}
+  .inp-num{width:100%;text-align:center;font-size:13px;font-weight:600;}
+  .inp-price{width:100%;text-align:center;font-size:13px;font-weight:600;}
+  .sep{color:var(--soft);font-size:12px;flex-shrink:0;user-select:none;margin:0 -1px;}
+  .eq{color:var(--soft);font-size:12px;flex-shrink:0;}
+  .total{font-size:16px;font-weight:700;color:var(--accent);text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums;}
+  .row .total{font-size:13px;text-align:center;}
+  .del{
+    border:none;background:transparent;color:#d5d0cc;
+    font-size:13px;cursor:pointer;width:22px;height:22px;border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .15s;flex-shrink:0;justify-self:end;
+  }
+  .del:hover{background:#fce8e6;color:#e8857d;}
+  .grp-restore{
+    background:transparent;border:1px solid var(--border);color:var(--soft);
+    padding:5px 10px;font-size:11px;font-weight:600;
+    border-radius:var(--radius-sm);cursor:pointer;
+    font-family:var(--font);transition:all .2s;
+  }
+  .grp-restore:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
+
+  .add-row{
+    display:flex;align-items:center;justify-content:center;
+    padding:8px;cursor:pointer;color:var(--soft);
+    font-size:12px;font-weight:600;transition:all .2s;
+    border-top:1px dashed var(--border);
+  }
+  .add-row:hover{color:var(--accent);background:var(--accent-soft);}
+
+  /* Footer */
+  .grp-foot{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 16px;
+    background:linear-gradient(135deg,var(--ghead-bg,var(--c1-bg)),#fff);
+    border-top:1px solid var(--border);
+    font-size:13px;
+  }
+  .grp-sum{color:var(--soft);font-weight:500;}
+  .grp-sum .n{color:var(--gdeep,var(--c1-deep));font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;}
+  .grp-sum-total{font-size:14px;font-weight:700;color:var(--gdeep,var(--c1-deep));font-variant-numeric:tabular-nums;}
+  .grp-copy{
+    background:#b8d4e8;color:#333;border:none;
+    padding:6px 14px;font-size:11px;font-weight:700;
+    border-radius:var(--radius-sm);cursor:pointer;
+    font-family:var(--font);transition:all .12s;
+    box-shadow:0 3px 0 #96b8d4;
+  }
+  .grp-copy:hover{filter:brightness(1.05);transform:translateY(-1px);}
+  .grp-copy:active{transform:translateY(2px);box-shadow:0 1px 0 #96b8d4;}
+  .grp-arrow{
+    font-size:11px;color:var(--gdeep,var(--c1-deep));transition:transform .25s ease;
+    flex-shrink:0;font-weight:700;
+  }
+
+  /* Photo upload at bottom */
+  .grp-photos{
+    padding:8px 0 10px;border-top:1px solid var(--border-light);background:#faf9f7;
+  }
+  .photo-upload-zone{
+    width:36px;height:36px;border-radius:50%;
+    background:#f8b4c4;color:#fff;
+    display:inline-flex;align-items:center;justify-content:center;
+    cursor:pointer;position:relative;overflow:hidden;
+    box-shadow:0 3px 10px rgba(248,180,196,.4);
+    transition:transform .15s;
+  }
+  .photo-upload-zone:hover{transform:scale(1.08);}
+  .photo-upload-zone input[type="file"]{
+    position:absolute;inset:0;opacity:0;cursor:pointer;
+    width:100%;height:100%;
+  }
+  .photo-upload-zone::before{
+    content:"";width:14px;height:11px;border:1.5px solid #fff;
+    border-radius:2px;position:relative;
+  }
+  .photo-upload-zone::after{
+    content:"";width:4px;height:4px;border-radius:50%;
+    background:#fff;position:absolute;
+    top:12px;right:12px;
+  }
+  .photo-grid-mini{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));
+    gap:6px;margin-top:8px;padding:0 12px;
+  }
+  .pgm-item{
+    position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;
+    border:1px solid var(--border);
+  }
+  .pgm-item img{width:100%;height:100%;object-fit:cover;}
+  .pgm-item .rm{
+    position:absolute;top:3px;right:3px;
+    width:20px;height:20px;border-radius:50%;
+    background:rgba(0,0,0,.5);color:#fff;border:none;
+    cursor:pointer;font-size:11px;
+    display:flex;align-items:center;justify-content:center;
+  }
+
+  /* New group */
+  .new-group{
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    padding:14px;cursor:pointer;color:#333;
+    font-size:13px;font-weight:700;transition:all .12s;
+    border:none;border-radius:var(--radius);
+    background:#d4b8e0;box-shadow:0 4px 0 #b896d0;
+    flex:1;
+  }
+  .new-group:hover{filter:brightness(1.05);transform:translateY(-1px);}
+  .new-group:active{transform:translateY(2px);box-shadow:0 1px 0 #b896d0;}
+  .bottom-actions{display:flex;gap:8px;align-items:stretch;}
+  .grp-restore-btn{
+    padding:14px 18px;cursor:pointer;color:var(--soft);
+    font-size:13px;font-weight:600;transition:all .2s;
+    border:2px solid var(--border);border-radius:var(--radius);
+    background:transparent;white-space:nowrap;
+  }
+  .grp-restore-btn:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-soft);}
+
+  /* Sub-boxes - numbered buttons */
+  .photo-box-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0 12px 8px;}
+  .photo-box-row .photo-upload-zone{margin:0;cursor:pointer;}
+  .box-num{
+    display:inline-flex;align-items:center;justify-content:center;gap:2px;
+    width:40px;height:40px;border-radius:10px;font-size:15px;font-weight:700;
+    color:#333;cursor:pointer;
+    transition:all .12s;position:relative;flex-shrink:0;
+  }
+  .box-num:hover{transform:translateY(-1px);filter:brightness(1.05);}
+  .box-num:active{transform:translateY(2px);box-shadow:none !important;}
+  /* 少女系马卡龙色 - 6种循环，3D立体 */
+  .bn-0{background:#f8b4c4;box-shadow:0 3px 0 #e896a8;}
+  .bn-0:active{box-shadow:0 1px 0 #e896a8 !important;}
+  .bn-1{background:#d4b8e0;box-shadow:0 3px 0 #b896d0;}
+  .bn-1:active{box-shadow:0 1px 0 #b896d0 !important;}
+  .bn-2{background:#b8d4e8;box-shadow:0 3px 0 #96b8d4;}
+  .bn-2:active{box-shadow:0 1px 0 #96b8d4 !important;}
+  .bn-3{background:#b8e0c8;box-shadow:0 3px 0 #96d0a8;}
+  .bn-3:active{box-shadow:0 1px 0 #96d0a8 !important;}
+  .bn-4{background:#ffd166;box-shadow:0 3px 0 #f0b840;}
+  .bn-4:active{box-shadow:0 1px 0 #f0b840 !important;}
+  .bn-5{background:#f8b8d0;box-shadow:0 3px 0 #e896b8;}
+  .bn-5:active{box-shadow:0 1px 0 #e896b8 !important;}
+  .box-num-del{
+    position:absolute;top:-6px;right:-6px;width:18px;height:18px;
+    border-radius:50%;background:#fff;border:1px solid var(--border);
+    color:var(--light);font-size:10px;cursor:pointer;line-height:1;
+    display:flex;align-items:center;justify-content:center;padding:0;
+  }
+  .box-num-del:hover{color:#d4a5a5;border-color:#d4a5a5;}
+  .box-num-add{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:40px;height:40px;border-radius:10px;font-size:18px;font-weight:700;
+    color:#f8b4c4;background:#fff;border:2px dashed #f8d0d8;
+    cursor:pointer;transition:all .12s;flex-shrink:0;
+  }
+  .box-num-add:hover{color:#fff;border-color:#f8b4c4;background:#f8b4c4;transform:translateY(-1px);}
+
+  /* Status tag - 母表里的状态按钮，3D立体可爱风 */
+  .status-tag{
+    margin-left:auto;flex-shrink:0;
+    padding:10px 22px;border-radius:16px;font-size:14px;font-weight:700;
+    border:none;cursor:pointer;transition:all .12s;font-family:var(--font);
+    color:#333;position:relative;
+  }
+  .status-tag:hover{transform:translateY(-1px);filter:brightness(1.05);}
+  .status-tag:active{transform:translateY(2px);box-shadow:none !important;}
+  .st-0{
+    background:#f8b4c4;
+    box-shadow:0 4px 0 #e896a8, 0 6px 12px rgba(248,180,196,.35);
+  }
+  .st-0:active{box-shadow:0 1px 0 #e896a8 !important;}
+  .st-1{
+    background:#ffd166;
+    color:#333;
+    box-shadow:0 4px 0 #f0b840, 0 6px 12px rgba(255,209,102,.35);
+  }
+  .st-1:active{box-shadow:0 1px 0 #f0b840 !important;}
+  .st-2{
+    background:#b8d4e8;
+    box-shadow:0 4px 0 #96b8d4, 0 6px 12px rgba(184,212,232,.35);
+  }
+  .st-2:active{box-shadow:0 1px 0 #96b8d4 !important;}
+  .st-3{
+    background:#d4b8e0;
+    box-shadow:0 4px 0 #b896d0, 0 6px 12px rgba(212,184,224,.35);
+  }
+  .st-3:active{box-shadow:0 1px 0 #b896d0 !important;}
+
+  /* Status picker modal - 弹窗里的选择按钮，简洁小 */
+  .st-box{max-width:240px;}
+  .st-options{display:flex;flex-direction:column;gap:6px;margin:10px 0;}
+  .st-opt{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    padding:8px 12px;border-radius:8px;border:1px solid var(--border);
+    cursor:pointer;transition:all .15s;font-family:var(--font);
+    text-align:center;background:#fff;color:var(--text);font-weight:500;
+  }
+  .st-opt:hover{background:var(--accent-soft);border-color:var(--accent);}
+  .st-opt:active{transform:scale(.98);}
+  .st-opt-0:hover{background:#fef0f3;border-color:#f8b4c4;color:#e896a8;}
+  .st-opt-1:hover{background:#fff8e6;border-color:#ffd166;color:#d4a020;}
+  .st-opt-2:hover{background:#eef4fa;border-color:#b8d4e8;color:#6a9bc4;}
+  .st-opt-3:hover{background:#f5eefa;border-color:#d4b8e0;color:#a87cc0;}
+  .st-ic{font-size:16px;}
+  .st-txt{font-size:13px;font-weight:500;flex:none;}
+  .st-cancel{
+    width:100%;border:none;background:var(--bg);color:var(--soft);
+    padding:8px;border-radius:8px;font-size:12px;font-weight:600;
+    cursor:pointer;font-family:var(--font);transition:all .2s;
+  }
+  .st-cancel:hover{background:var(--accent-soft);color:var(--accent);}
+  .group[data-status="0"]{border-color:#f8b4c4;border-width:2.5px;}
+  .group[data-status="0"] .grp-head{background:linear-gradient(135deg,#fef0f3,#fff);}
+  .group[data-status="1"]{border-color:#ffd166;border-width:2.5px;}
+  .group[data-status="1"] .grp-head{background:linear-gradient(135deg,#fff8e6,#fff);}
+  .group[data-status="2"]{border-color:#b8d4e8;border-width:2.5px;}
+  .group[data-status="2"] .grp-head{background:linear-gradient(135deg,#eef4fa,#fff);}
+  .group[data-status="3"]{border-color:#d4b8e0;border-width:2.5px;}
+  .group[data-status="3"] .grp-head{background:linear-gradient(135deg,#f5eefa,#fff);}
+
+  /* Box Modal */
+  .bm-modal{
+    background:#fff;border-radius:16px;width:95%;max-width:520px;
+    max-height:88vh;display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,.18);
+    animation:bmPop .25s ease;
+  }
+  @keyframes bmPop{from{transform:scale(.92);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .bm-head{
+    display:flex;align-items:center;gap:8px;padding:14px 16px;
+    border-bottom:1px solid var(--border-light);
+  }
+  .bm-ic{font-size:18px;}
+  .bm-title-inp{
+    flex:1;font-size:15px;font-weight:700;border:none;outline:none;
+    background:transparent;font-family:var(--font);color:var(--text);
+  }
+  .bm-title-inp::placeholder{color:var(--border);font-weight:400;}
+  .bm-close{
+    background:none;border:none;font-size:16px;color:var(--light);
+    cursor:pointer;padding:4px;
+  }
+  .bm-close:hover{color:var(--pink-deep);}
+  .bm-list{
+    flex:1;overflow-y:auto;padding:8px 16px;
+  }
+  .bm-row{
+    display:flex;align-items:center;gap:6px;padding:8px 0;
+    border-bottom:1px solid var(--border-light);font-size:14px;
+  }
+  .bm-num{color:var(--light);font-size:11px;width:18px;flex-shrink:0;text-align:center;}
+  .bm-inp{
+    border:none;border-bottom:1px dashed var(--border);outline:none;
+    background:transparent;font-family:var(--font);color:var(--text);
+    padding:3px 2px;transition:all .15s;
+  }
+  .bm-name{flex:1;min-width:60px;font-size:15px;font-weight:600;}
+  .bm-qty{width:50px;text-align:center;font-size:15px;font-weight:600;}
+  .bm-inp:focus{border-bottom:1.5px solid #f8b4c4;background:#fef0f3;}
+  .bm-x{color:var(--light);font-size:13px;}
+  .bm-sep{color:var(--soft);font-size:13px;font-weight:600;}
+  .bm-del{
+    background:none;border:none;color:var(--light);font-size:13px;
+    cursor:pointer;padding:2px 4px;
+  }
+  .bm-del:hover{color:var(--pink-deep);}
+  .bm-add{
+    text-align:center;padding:10px;cursor:pointer;color:var(--light);
+    font-size:13px;font-weight:600;
+  }
+  .bm-add:hover{color:var(--accent);}
+  .bm-foot{
+    padding:12px 16px;border-top:1px solid var(--border-light);
+    display:flex;gap:8px;
+  }
+  .bm-copy{
+    flex:1;padding:11px;border:1px solid var(--border);border-radius:10px;
+    background:#fff;color:var(--soft);font-size:13px;font-weight:700;
+    cursor:pointer;transition:all .12s;
+    box-shadow:0 3px 0 #e0dcd8;
+  }
+  .bm-copy:hover{border-color:#c8c2bd;color:var(--accent);transform:translateY(-1px);}
+  .bm-copy:active{transform:translateY(2px);box-shadow:0 1px 0 #e0dcd8;}
+  .bm-fill{
+    flex:1;padding:11px;border:none;border-radius:10px;
+    background:#ffd166;color:#333;font-size:13px;font-weight:700;
+    cursor:pointer;transition:all .12s;
+    box-shadow:0 3px 0 #f0b840;
+  }
+  .bm-fill:hover{filter:brightness(1.05);transform:translateY(-1px);}
+  .bm-fill:active{transform:translateY(2px);box-shadow:0 1px 0 #f0b840;}
+  .bm-done{
+    flex:1;padding:11px;border:none;border-radius:10px;
+    background:#f8b4c4;color:#333;font-size:13px;font-weight:700;
+    cursor:pointer;transition:all .12s;
+    box-shadow:0 3px 0 #e896a8;
+  }
+  .bm-done:hover{filter:brightness(1.05);transform:translateY(-1px);}
+  .bm-done:active{transform:translateY(2px);box-shadow:0 1px 0 #e896a8;}
+
+  .bm-photos{
+    padding:10px 16px;border-top:1px solid var(--border-light);
+    background:#faf9f7;
+  }
+  .bm-photos .photo-grid-mini{padding:0;margin-top:8px;}
+
+  /* Name suggestion dropdown */
+  .ns-wrap{position:relative;width:100%;min-width:0;}
+  .ns-dropdown{
+    position:absolute;top:100%;left:0;right:0;z-index:50;
+    background:#fff;border:1px solid var(--border);border-radius:8px;
+    box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:160px;overflow-y:auto;
+    display:none;margin-top:2px;
+  }
+  .ns-dropdown.show{display:block;}
+  .ns-item{
+    padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;
+    transition:background .12s;border-bottom:1px solid var(--border-light);
+  }
+  .ns-item:last-child{border-bottom:none;}
+  .ns-item:hover,.ns-item.active{background:var(--accent-soft);color:var(--accent);}
+  .ns-item .ns-qty{color:var(--soft);font-size:11px;margin-left:6px;}
+
+  /* Toast */
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--text);color:#fff;padding:8px 18px;border-radius:24px;font-size:12px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.12);opacity:0;pointer-events:none;transition:all .3s;z-index:9999;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* Confirm Modal */
+  .cfm-bg{
+    position:fixed;inset:0;background:rgba(44,42,40,.35);
+    display:none;align-items:center;justify-content:center;
+    z-index:200;backdrop-filter:blur(3px);
+    opacity:0;transition:opacity .2s;
+  }
+  #cfmBg{z-index:300;}
+  .cfm-bg.show{display:flex;opacity:1;}
+  .cfm-box{
+    background:#fff;border-radius:16px;padding:24px 24px 16px;
+    max-width:300px;width:85%;text-align:center;
+    box-shadow:0 12px 40px rgba(124,106,94,.18);
+    transform:scale(.9);transition:transform .25s ease;
+  }
+  .cfm-bg.show .cfm-box{transform:scale(1);}
+  .cfm-icon{
+    width:48px;height:48px;border-radius:50%;
+    background:linear-gradient(135deg,#fef0f3,#f8d0d8);
+    display:flex;align-items:center;justify-content:center;
+    font-size:22px;margin:0 auto 12px;
+    box-shadow:0 4px 14px rgba(248,180,196,.25);
+  }
+  .cfm-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;}
+  .cfm-sub{font-size:12px;color:var(--soft);margin-bottom:18px;}
+  .cfm-btns{display:flex;gap:8px;}
+  .cfm-btn{
+    flex:1;border:none;border-radius:10px;padding:10px;
+    font-size:13px;font-weight:600;cursor:pointer;
+    font-family:var(--font);transition:all .2s;
+  }
+  .cfm-cancel{background:var(--bg);color:var(--soft);}
+  .cfm-cancel:hover{background:var(--accent-soft);color:var(--accent);}
+  .cfm-ok{background:#f8b4c4;color:#333;box-shadow:0 3px 0 #e896a8;transition:all .12s;}
+  .cfm-ok:hover{filter:brightness(1.05);transform:translateY(-1px);}
+  .cfm-ok:active{transform:translateY(2px);box-shadow:0 1px 0 #e896a8;}
+
+  /* Date Picker Modal */
+  .dp-bg{
+    position:fixed;inset:0;background:rgba(44,42,40,.35);
+    display:none;align-items:center;justify-content:center;
+    z-index:200;backdrop-filter:blur(3px);
+    opacity:0;transition:opacity .2s;
+  }
+  .dp-bg.show{display:flex;opacity:1;}
+  .dp-box{
+    background:#fff;border-radius:16px;padding:20px 20px 16px;
+    max-width:320px;width:85%;text-align:center;
+    box-shadow:0 12px 40px rgba(124,106,94,.18);
+    transform:scale(.9);transition:transform .25s ease;
+  }
+  .dp-bg.show .dp-box{transform:scale(1);}
+  .dp-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;}
+  .dp-wheels{display:flex;gap:8px;justify-content:center;margin-bottom:16px;height:120px;overflow:hidden;position:relative;padding:0;}
+  .dp-wheels::before{content:'';position:absolute;top:0;left:0;right:0;height:40px;background:linear-gradient(to bottom,#fff,rgba(255,255,255,0));z-index:1;pointer-events:none;}
+  .dp-wheels::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(to top,#fff,rgba(255,255,255,0));z-index:1;pointer-events:none;}
+  .dp-wheel{
+    flex:1;height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;
+    -webkit-overflow-scrolling:touch;position:relative;
+    scrollbar-width:none;text-align:center;
+  }
+  .dp-wheel::-webkit-scrollbar{display:none;}
+  .dp-wheel .dp-item{
+    height:40px;line-height:40px;display:flex;align-items:center;justify-content:center;
+    font-size:15px;color:var(--soft);scroll-snap-align:center;
+    transition:color .2s;font-weight:500;
+  }
+  .dp-wheel .dp-item.active{color:var(--text);font-weight:800;font-size:17px;}
+  .dp-hl{
+    position:absolute;left:6%;right:6%;top:40px;height:40px;
+    border-top:1.5px solid #f8b4c4;border-bottom:1.5px solid #f8b4c4;
+    background:rgba(248,180,196,.08);
+    border-radius:8px;pointer-events:none;
+  }
+  .dp-lbl{font-size:12px;color:var(--soft);flex:1;text-align:center;}
+  .dp-labels{display:flex;gap:8px;justify-content:center;margin-bottom:6px;padding:0 4px;}
+  .dp-btns{display:flex;gap:8px;}
+  .dp-btn{
+    flex:1;border:none;border-radius:10px;padding:10px;
+    font-size:13px;font-weight:600;cursor:pointer;
+    font-family:var(--font);transition:all .2s;
+  }
+  .dp-cancel{background:var(--bg);color:var(--soft);}
+  .dp-cancel:hover{background:var(--accent-soft);color:var(--accent);}
+  .dp-ok{background:#f8b4c4;color:#333;box-shadow:0 3px 0 #e896a8;transition:all .12s;}
+  .dp-ok:hover{filter:brightness(1.05);transform:translateY(-1px);}
+  .dp-ok:active{transform:translateY(2px);box-shadow:0 1px 0 #e896a8;}
+
+  ::-webkit-scrollbar{width:4px;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+  @media(max-width:480px){
+    .wrap{max-width:100%;padding:0 10px 30px;}
+    .inp-name{min-width:0;}
+    .row,.row-head{
+      grid-template-columns:12px 1fr 4px 28px 4px 36px 4px 38px 4px 20px;
+      gap:3px;padding-left:6px;padding-right:6px;
+    }
+    .grp-date{width:80px;}
+  }
+
+  /* Sync settings */
+  .sync-box{width:90%;max-width:400px;}
+  .sync-form{display:flex;flex-direction:column;gap:10px;margin:16px 0 8px;text-align:left;}
+  .sync-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--soft);font-weight:600;}
+  .sync-form input{
+    padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);
+    font-size:14px;font-family:var(--font);outline:none;transition:border .2s;
+    background:#fff;color:var(--text);
+  }
+  .sync-form input:focus{border-color:var(--accent);}
+  .sync-hint{margin-top:10px;font-size:11px;color:var(--soft);line-height:1.6;}
+  .sync-hint p{margin:2px 0;}
+  #syncStatus{font-size:11px;font-weight:600;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="header">
+    <div class="brand">
+      <div class="brand-icon">♥</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost" onclick="openSyncSettings()" title="同步设置">☁️ <span id="syncStatus">未连接</span></button>
+      <button class="btn btn-ghost" onclick="clearAll()">🗑 清空</button>
+    </div>
+  </div>
+
+  <div id="groups"></div>
+
+  <div class="bottom-actions">
+    <div class="new-group" onclick="addGroup()">＋ 新建</div>
+    <div id="grpRestore"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Sync Settings Modal -->
+<div class="cfm-bg" id="syncBg" onclick="if(event.target===this)closeSyncSettings()">
+  <div class="cfm-box sync-box">
+    <div class="cfm-icon">☁️</div>
+    <div class="cfm-title">GitHub 同步设置</div>
+    <div class="cfm-sub">填入 GitHub 信息，实现多设备数据同步</div>
+    <div class="sync-form">
+      <label>
+        <span>GitHub 用户名</span>
+        <input type="text" id="syncUser" placeholder="你的 GitHub 用户名" />
+      </label>
+      <label>
+        <span>仓库名</span>
+        <input type="text" id="syncRepo" placeholder="比如 xiaozhuo" />
+      </label>
+      <label>
+        <span>分支</span>
+        <input type="text" id="syncBranch" placeholder="main" value="main" />
+      </label>
+      <label>
+        <span>数据文件名</span>
+        <input type="text" id="syncFile" placeholder="data.json" value="data.json" />
+      </label>
+      <label>
+        <span>Personal Token</span>
+        <input type="password" id="syncToken" placeholder="ghp_ 开头的令牌" />
+      </label>
+    </div>
+    <div class="cfm-btns">
+      <button class="cfm-btn cfm-cancel" onclick="closeSyncSettings()">取消</button>
+      <button class="cfm-btn cfm-ok" onclick="saveSyncSettings()">保存并连接</button>
+    </div>
+    <div class="sync-hint">
+      <p>💡 Token 只存在你本地浏览器，不会上传到任何地方</p>
+      <p>💡 Token 需要有 repo 权限</p>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="cfm-bg" id="cfmBg" onclick="if(event.target===this)cfmCancel()">
+  <div class="cfm-box">
+    <div class="cfm-icon" id="cfmIcon">🗑</div>
+    <div class="cfm-title" id="cfmTitle">确认删除？</div>
+    <div class="cfm-sub" id="cfmSub"></div>
+    <div class="cfm-btns">
+      <button class="cfm-btn cfm-cancel" onclick="cfmCancel()">取消</button>
+      <button class="cfm-btn cfm-ok" id="cfmOk" onclick="cfmConfirm()">删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Box Modal (子表弹窗) -->
+<div class="cfm-bg" id="overlay2" onclick="if(event.target===this)closeBoxModal()">
+  <div class="bm-modal" id="boxModal">
+    <div class="bm-head">
+      <span class="bm-ic">📦</span>
+      <input class="bm-title-inp" type="text" placeholder="子表标题" />
+      <button class="bm-close" onclick="closeBoxModal()">✕</button>
+    </div>
+    <div class="bm-list" id="boxModalList"></div>
+    <div class="bm-photos" id="boxModalPhotos">
+      <div class="photo-upload-zone bm-pz" id="bmPuz">
+        <input type="file" id="bmPfile" accept="image/*" multiple
+          onchange="try{handleBoxFiles(this.files);}catch(e){alert('上传出错：'+e.message);}this.value=''" />
+      </div>
+      <div class="photo-grid-mini" id="bmPhotoGrid"></div>
+    </div>
+    <div class="bm-foot">
+      <button class="bm-copy" onclick="copyBox()">📋 复制</button>
+      <button class="bm-fill" onclick="fillBoxToParent()">⬆ 填入母表</button>
+      <button class="bm-done" onclick="closeBoxModal()">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Status Picker Modal -->
+<div class="dp-bg" id="stBg" onclick="if(event.target===this)stCancel()">
+  <div class="dp-box st-box">
+    <div class="dp-title">选择状态</div>
+    <div class="st-options">
+      <button class="st-opt st-opt-0" data-val="0" onclick="selectStatus(0)">
+        <span class="st-ic">📦</span>
+        <span class="st-txt">未出货</span>
+      </button>
+      <button class="st-opt st-opt-1" data-val="1" onclick="selectStatus(1)">
+        <span class="st-ic">🚚</span>
+        <span class="st-txt">已出货</span>
+      </button>
+      <button class="st-opt st-opt-2" data-val="2" onclick="selectStatus(2)">
+        <span class="st-ic">💰</span>
+        <span class="st-txt">已结算</span>
+      </button>
+      <button class="st-opt st-opt-3" data-val="3" onclick="selectStatus(3)">
+        <span class="st-ic">📋</span>
+        <span class="st-txt">已入账</span>
+      </button>
+    </div>
+    <button class="st-cancel" onclick="stCancel()">取消</button>
+  </div>
+</div>
+
+<!-- Date Picker Modal -->
+<div class="dp-bg" id="dpBg" onclick="if(event.target===this)dpCancel()">
+  <div class="dp-box">
+    <div class="dp-title">选择日期</div>
+    <div class="dp-labels"><span class="dp-lbl">年</span><span class="dp-lbl">月</span><span class="dp-lbl">日</span></div>
+    <div class="dp-wheels">
+      <div class="dp-wheel" id="dpYear"></div>
+      <div class="dp-wheel" id="dpMonth"></div>
+      <div class="dp-wheel" id="dpDay"></div>
+      <div class="dp-hl"></div>
+    </div>
+    <div class="dp-btns">
+      <button class="dp-btn dp-cancel" onclick="dpCancel()">取消</button>
+      <button class="dp-btn dp-ok" onclick="dpConfirm()">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let groups = [];
+let trash = [];
+let groupTrash = [];
+
+function load(){
+  try{ const r=localStorage.getItem('xz_v4'); if(r) groups=JSON.parse(r); }catch(e){}
+  if(!groups.length) groups=[newGroup()];
+  // Ensure boxes array exists on old data, and normalize date format
+  groups.forEach(g=>{
+    if(!g.boxes) g.boxes=[];
+    if(g.status===undefined) g.status=0;
+    // Normalize date format to YYYY/M/D
+    if(g.date){
+      const t = new Date(g.date);
+      if(!isNaN(t.getTime())){
+        g.date = `${t.getFullYear()}/${t.getMonth()+1}/${t.getDate()}`;
+      }
+    }
+    g.boxes.forEach(b=>{
+      if(!b.id) b.id = Date.now()+Math.random();
+      if(!b.photos) b.photos = [];
+    });
+  });
+}
+function save(){ sortGroupsByDate(); localStorage.setItem('xz_v4',JSON.stringify(groups)); syncPush(); }
+
+/* ===== GitHub Sync ===== */
+let syncTimer=null;
+let syncCfg=null;
+function loadSyncCfg(){
+  try{ syncCfg=JSON.parse(localStorage.getItem('xz_sync')||'null'); }catch(e){ syncCfg=null; }
+  updateSyncStatusUI();
+}
+function updateSyncStatusUI(){
+  const el=document.getElementById('syncStatus');
+  if(!el) return;
+  if(!syncCfg||!syncCfg.token){ el.textContent='未连接'; el.style.color=''; }
+  else{ el.textContent='已连接'; el.style.color='#7a9b6e'; }
+}
+function openSyncSettings(){
+  loadSyncCfg();
+  document.getElementById('syncUser').value = syncCfg?.user||'';
+  document.getElementById('syncRepo').value = syncCfg?.repo||'';
+  document.getElementById('syncBranch').value = syncCfg?.branch||'main';
+  document.getElementById('syncFile').value = syncCfg?.file||'data.json';
+  document.getElementById('syncToken').value = syncCfg?.token||'';
+  document.getElementById('syncBg').style.display='flex';
+}
+function closeSyncSettings(){ document.getElementById('syncBg').style.display='none'; }
+function saveSyncSettings(){
+  const user=document.getElementById('syncUser').value.trim();
+  const repo=document.getElementById('syncRepo').value.trim();
+  const branch=document.getElementById('syncBranch').value.trim()||'main';
+  const file=document.getElementById('syncFile').value.trim()||'data.json';
+  const token=document.getElementById('syncToken').value.trim();
+  if(!user||!repo||!token){ toast('请填写完整信息'); return; }
+  syncCfg={user,repo,branch,file,token};
+  localStorage.setItem('xz_sync',JSON.stringify(syncCfg));
+  updateSyncStatusUI();
+  closeSyncSettings();
+  toast('已保存，正在同步...');
+  syncPull(true);
+}
+function ghApi(path,opts={}){
+  const headers={'Authorization':`token ${syncCfg.token}`,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'};
+  return fetch(`https://api.github.com/repos/${syncCfg.user}/${syncCfg.repo}/contents/${path}`,{...opts,headers}).then(r=>{
+    if(r.status===404) return null;
+    if(!r.ok) throw new Error('GitHub API '+r.status);
+    return r.json();
+  });
+}
+function syncPull(forceMerge=false){
+  if(!syncCfg||!syncCfg.token) return Promise.resolve();
+  return ghApi(syncCfg.file).then(data=>{
+    if(!data){ 
+      // 文件不存在，把当前数据推上去
+      return syncPush(true); 
+    }
+    try{
+      const content=JSON.parse(atob(data.content));
+      const remoteTs=content._syncTs||0;
+      const localTs=groups._syncTs||0;
+      if(forceMerge||remoteTs>localTs){
+        // 远端更新，拉取合并（简单策略：远端新就用远端）
+        if(content.groups){
+          groups=content.groups;
+          groups._syncTs=remoteTs;
+          localStorage.setItem('xz_v4',JSON.stringify(groups));
+          render();
+          if(!forceMerge) toast('已从云端同步');
+        }
+      }
+    }catch(e){ console.error('sync pull error',e); }
+  }).catch(e=>{ console.error(e); toast('同步失败：'+e.message); });
+}
+function syncPush(force=false){
+  if(!syncCfg||!syncCfg.token) return;
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(()=>{
+    const now=Date.now();
+    groups._syncTs=now;
+    const payload=JSON.stringify({_syncTs:now,groups});
+    ghApi(syncCfg.file).then(data=>{
+      const body={
+        message:`sync ${new Date(now).toLocaleString()}`,
+        content:btoa(unescape(encodeURIComponent(payload))),
+        branch:syncCfg.branch
+      };
+      if(data) body.sha=data.sha;
+      return fetch(`https://api.github.com/repos/${syncCfg.user}/${syncCfg.repo}/contents/${syncCfg.file}`,{
+        method:'PUT',
+        headers:{'Authorization':`token ${syncCfg.token}`,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
+        body:JSON.stringify(body)
+      });
+    }).then(r=>{
+      if(!r.ok) throw new Error('推送失败 '+r.status);
+      updateSyncStatusUI();
+    }).catch(e=>{ console.error(e); });
+  },force?0:1500);
+}
+
+function newGroup(){
+  return {id:Date.now()+Math.random(), title:'', date:today(), rows:[newRow()], photos:[], collapsed:true, boxes:[], status:0};
+}
+function newRow(){ return {name:'',qty:'',price:''}; }
+function newBox(){ return {id:Date.now()+Math.random(), title:'', rows:[{name:'',qty:''}], photos:[], collapsed:true}; }
+function today(){ const d=new Date(); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; }
+function parseDate(str){
+  const p=String(str).split('/');
+  const y=parseInt(p[0])||2026, m=parseInt(p[1])||1, d=parseInt(p[2])||1;
+  return new Date(y,m-1,d).getTime();
+}
+function sortGroupsByDate(){ groups.sort((a,b)=>parseDate(a.date)-parseDate(b.date)); }
+function n(v){ v=parseFloat(v); if(isNaN(v)) return 0; if(Number.isInteger(v)) return v; return parseFloat(v.toFixed(2)); }
+function calc(r){ return n((parseFloat(r.qty)||0)*(parseFloat(r.price)||0)); }
+function validRows(g){ return g.rows.filter(r=>r.name.trim()&&r.qty&&r.price); }
+function grpTotal(g){ return n(validRows(g).reduce((s,r)=>s+calc(r),0)); }
+
+const themes = [
+  {bg:'var(--c1-bg)', deep:'var(--c1-deep)', bar:'var(--c1-bar)'},
+  {bg:'var(--c2-bg)', deep:'var(--c2-deep)', bar:'var(--c2-bar)'},
+  {bg:'var(--c3-bg)', deep:'var(--c3-deep)', bar:'var(--c3-bar)'},
+  {bg:'var(--c4-bg)', deep:'var(--c4-deep)', bar:'var(--c4-bar)'},
+  {bg:'var(--c5-bg)', deep:'var(--c5-deep)', bar:'var(--c5-bar)'},
+];
+
+/* ====== Render ====== */
+function render(){
+  sortGroupsByDate();
+  const c = document.getElementById('groups');
+  if(!groups.length) groups=[newGroup()];
+  c.innerHTML = groups.map((g,gi)=>{
+    const t = themes[gi % themes.length];
+    return `
+    <div class="group" data-gid="${g.id}" data-status="${g.status}" style="--gbar:${t.bar};--ghead-bg:${t.bg};--gdeep:${t.deep};">
+      <!-- Title + date + sum, all in one row -->
+      <div class="grp-head ${g.collapsed?'collapsed':''}" data-ghead="${gi}">
+        <span class="grp-arrow">▼</span>
+        <input class="grp-title locked" type="text" value="${esc(g.title)}" placeholder="标题（≤6字）" maxlength="6" readonly
+          ondblclick="event.stopPropagation();unlockTitle(this,${gi})"
+          oninput="updGroup(${gi},'title',this.value)" />
+        <span class="grp-spacer"></span>
+        <input class="grp-date" type="text" value="${esc(g.date)}" placeholder="日期" readonly
+          onclick="event.stopPropagation();openDatePicker(${gi})" />
+        <span class="grp-sum-mini">${grpTotal(g)}</span>
+        <button class="grp-del" onclick="event.stopPropagation();delGroup(${gi})" title="删除">✕</button>
+      </div>
+      <div class="grp-body ${g.collapsed?'collapsed':''}" data-gbody="${gi}">
+        <div class="row-head">
+          <span class="rh-num"></span>
+          <span class="rh-name">产品</span>
+          <span class="rh-sep1"></span>
+          <span class="rh-qty">数量</span>
+          <span class="rh-sep2"></span>
+          <span class="rh-price">单价</span>
+          <span class="rh-sep3"></span>
+          <span class="rh-total">金额</span>
+          <span class="rh-sep4"></span>
+          <span class="rh-del"></span>
+        </div>
+        ${g.rows.map((r,ri)=>`
+          <div class="row" data-gid="${g.id}" data-rid="${ri}">
+            <span class="row-num">${ri+1}</span>
+            <div class="ns-wrap">
+              <input class="inp inp-name" type="text" placeholder="名称" value="${esc(r.name)}"
+                oninput="updRow(${gi},${ri},'name',this.value);showNameSuggest(this,'parent',${gi},${ri})"
+                onfocus="showNameSuggest(this,'parent',${gi},${ri})"
+                onblur="hideNameSuggest(this)" autocomplete="off" />
+              <div class="ns-dropdown"></div>
+            </div>
+            <span class="col-sep">|</span>
+            <input class="inp inp-num" type="number" min="1" placeholder="0" value="${esc(r.qty)}"
+              oninput="updRow(${gi},${ri},'qty',this.value)" />
+            <span class="col-sep">*</span>
+            <input class="inp inp-price" type="number" min="0" step="0.01" placeholder="0" value="${esc(r.price)}"
+              oninput="updRow(${gi},${ri},'price',this.value)" />
+            <span class="col-sep">=</span>
+            <span class="total">${calc(r)}</span>
+            <span class="col-sep">|</span>
+            <button class="del" onclick="delRow(${gi},${ri})" title="删">✕</button>
+          </div>
+        `).join('')}
+        <div class="add-row" onclick="addRow(${gi})">＋ 添加一行</div>
+        <div class="grp-foot">
+          <div class="grp-sum">共<span class="n">${validRows(g).length}</span>项</div>
+          <div class="grp-sum-total">${grpTotal(g)}</div>
+          <div style="display:flex;gap:6px;">
+            ${trash.some(t=>t.gi===gi) ? `<button class="grp-restore" onclick="restoreRow(${gi})">↩ 恢复</button>` : ''}
+            <button class="grp-copy" onclick="copyGroup(${gi})">📋 复制</button>
+          </div>
+        </div>
+        <div class="grp-photos">
+          <div class="photo-box-row">
+            <div class="photo-upload-zone" id="puz_${gi}">
+              <input type="file" id="pfile_${gi}" accept="image/*" multiple
+                onchange="try{handleGroupFiles(${gi},this.files);}catch(e){alert('上传出错：'+e.message);}this.value=''" />
+            </div>
+            <!-- Sub-box tags: numbered buttons next to photo upload -->
+            ${g.boxes.map((b,bi)=>`
+              <span class="box-num bn-${bi%6}" onclick="openBoxModal(${gi},${bi})" title="${esc(b.title)||'子表'+(bi+1)}">
+                ${bi+1}
+                <button class="box-num-del" onclick="event.stopPropagation();delBox(${gi},${bi})">✕</button>
+              </span>
+            `).join('')}
+            <span class="box-num-add" onclick="addBox(${gi})" title="添加子表">＋</span>
+            <button class="status-tag st-${g.status}" onclick="openStatusPicker(${gi})">
+              ${['未出货','已出货','已结算','已入账'][g.status]}
+            </button>
+          </div>
+          ${g.photos.length ? `
+            <div class="photo-grid-mini">
+              ${g.photos.map((p,j)=>`<div class="pgm-item"><img src="${p}"/><button class="rm" onclick="rmPhoto(${gi},${j})">✕</button></div>`).join('')}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+  `}).join('');
+
+  // Show group restore button if there are deleted groups
+  const restoreEl = document.getElementById('grpRestore');
+  if(restoreEl){
+    restoreEl.innerHTML = groupTrash.length ? `<div class="grp-restore-btn" onclick="restoreGroup()">↩ 恢复(${groupTrash.length})</div>` : '';
+  }
+
+  // Attach click-to-collapse on header (with dblclick detection for title)
+  groups.forEach((g,gi)=>{
+    const head = document.querySelector(`[data-ghead="${gi}"]`);
+    if(head){
+      let clickTimer=null;
+      head.addEventListener('click',(e)=>{
+        // If clicking on title input, handle specially
+        if(e.target.classList && e.target.classList.contains('grp-title')){
+          if(clickTimer){
+            clearTimeout(clickTimer);
+            clickTimer=null;
+            // Double click on title - don't toggle, let dblclick handle
+            return;
+          }
+          clickTimer=setTimeout(()=>{
+            clickTimer=null;
+            toggleGroup(gi);
+          },250);
+          return;
+        }
+        toggleGroup(gi);
+      });
+    }
+    // Drag-drop
+    const z = document.getElementById('puz_'+gi);
+    if(z){
+      z.addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();z.style.borderColor='#f8b4c4';z.style.background='#fef0f3';});
+      z.addEventListener('dragleave',()=>{z.style.borderColor='var(--border)';z.style.background='#fff';});
+      z.addEventListener('drop',e=>{
+        e.preventDefault();e.stopPropagation();z.style.borderColor='var(--border)';z.style.background='#fff';
+        handleGroupFiles(gi,e.dataTransfer.files);
+      });
+      z.addEventListener('click',e=>{e.stopPropagation();});
+    }
+  });
+}
+
+/* Toggle collapse */
+function toggleGroup(gi){
+  groups[gi].collapsed = !groups[gi].collapsed;
+  save();
+  const head = document.querySelector(`[data-ghead="${gi}"]`);
+  const body = document.querySelector(`[data-gbody="${gi}"]`);
+  if(head && body){
+    head.classList.toggle('collapsed');
+    body.classList.toggle('collapsed');
+  }
+}
+
+/* ====== Group ops ====== */
+function addGroup(){ groups.push(newGroup()); save(); render(); }
+
+/* ====== Status Picker ====== */
+let stGi = null;
+const ST_LABELS = ['未出货','已出货','已结算','已入账'];
+
+function openStatusPicker(gi){
+  stGi = gi;
+  document.getElementById('stBg').classList.add('show');
+}
+function selectStatus(val){
+  if(stGi!==null){
+    groups[stGi].status = val;
+    save();
+    render();
+    toast('状态：'+ST_LABELS[val]);
+  }
+  stCancel();
+}
+function stCancel(){ document.getElementById('stBg').classList.remove('show'); stGi=null; }
+
+/* ====== Box ops (子表) ====== */
+function addBox(gi){ groups[gi].boxes.push(newBox()); save(); openBoxModal(gi, groups[gi].boxes.length-1); }
+function delBox(gi,bi){
+  const b = groups[gi].boxes[bi];
+  const title = b.title || ('子表'+(bi+1));
+  showConfirm(`删除「${title}」？`, '子表内容将被删除', '🗑', ()=>{
+    // If linked, remove contributions from parent first
+    if(b.linked){
+      const g = groups[gi];
+      const boxId = b.id;
+      g.rows = g.rows.filter(r=>{
+        if(r.fromBoxId === boxId) return false;
+        if(r.boxContrib && r.boxContrib[boxId] !== undefined){
+          const contrib = parseFloat(r.boxContrib[boxId])||0;
+          const cur = parseFloat(r.qty)||0;
+          r.qty = String(n(Math.max(0, cur - contrib)));
+          delete r.boxContrib[boxId];
+          if(Object.keys(r.boxContrib).length === 0) delete r.boxContrib;
+        }
+        return true;
+      });
+    }
+    groups[gi].boxes.splice(bi,1); save(); render();
+  });
+}
+function updBoxTitle(gi,bi,val){
+  if(!groups[gi].boxes[bi]) return;
+  groups[gi].boxes[bi].title = val;
+  save();
+}
+function addBoxRow(gi,bi){ groups[gi].boxes[bi].rows.push({name:'',qty:''}); save(); renderBoxModalList(gi,bi); }
+function delBoxRow(gi,bi,ri){
+  const r = groups[gi].boxes[bi].rows[ri];
+  if(!r.name.trim() && !r.qty){
+    if(groups[gi].boxes[bi].rows.length<=1) groups[gi].boxes[bi].rows=[{name:'',qty:''}];
+    else groups[gi].boxes[bi].rows.splice(ri,1);
+    save(); renderBoxModalList(gi,bi);
+    autoSyncBox(gi,bi);
+    return;
+  }
+  showConfirm(`删除「${r.name||'未命名'}」？`, '删除后子表母表同步移除', '🗑', ()=>{
+    if(groups[gi].boxes[bi].rows.length<=1) groups[gi].boxes[bi].rows=[{name:'',qty:''}];
+    else groups[gi].boxes[bi].rows.splice(ri,1);
+    save(); renderBoxModalList(gi,bi);
+    autoSyncBox(gi,bi);
+    toast('已删除');
+  });
+}
+
+/* ====== Box Modal ====== */
+let _boxModalGI=null, _boxModalBI=null;
+
+function openBoxModal(gi,bi){
+  _boxModalGI=gi; _boxModalBI=bi;
+  const b = groups[gi].boxes[bi];
+  const ov = document.getElementById('overlay2');
+  const m = document.getElementById('boxModal');
+  m.querySelector('.bm-title-inp').value = b.title;
+  m.querySelector('.bm-title-inp').oninput = (e)=>{
+    groups[gi].boxes[bi].title = e.target.value;
+    save();
+    // Update tooltip
+    const tag = document.querySelectorAll('.box-num')[bi];
+    if(tag) tag.title = e.target.value || ('子表'+(bi+1));
+  };
+  renderBoxModalList(gi,bi);
+  renderBoxPhotos(gi,bi);
+  ov.classList.add('show');
+  m.classList.add('show');
+}
+
+function closeBoxModal(){
+  _boxModalGI=null; _boxModalBI=null;
+  document.getElementById('overlay2').classList.remove('show');
+  document.getElementById('boxModal').classList.remove('show');
+  render(); // refresh tags
+}
+function copyBox(){
+  if(_boxModalGI===null||_boxModalBI===null){ toast('无可复制子表'); return; }
+  const b = groups[_boxModalGI].boxes[_boxModalBI];
+  const valid = b.rows.filter(r=>r.name.trim());
+  if(!valid.length){ toast('请先填写名称'); return; }
+  const txt = valid.map(r=>`${r.name}*${n(r.qty)}`).join('\n');
+  doCopy(txt);
+}
+
+/* ====== Fill box to parent table (with linkage) ====== */
+function fillBoxToParent(){
+  if(_boxModalGI===null||_boxModalBI===null){ toast('无可填充子表'); return; }
+  const gi=_boxModalGI, bi=_boxModalBI;
+  const result = syncBoxToParent(gi, bi, true);
+  if(result){
+    closeBoxModal();
+    toast(`已联动母表（新增${result.added}项，合并${result.merged}项）`);
+  }
+}
+
+// Sync box data to parent table. Returns {added, merged} or null if no data.
+function syncBoxToParent(gi, bi, isInitial){
+  const g = groups[gi];
+  const b = g.boxes[bi];
+  if(!b) return null;
+  const boxId = b.id;
+
+  // Step 1: Remove old contributions from this box
+  g.rows = g.rows.filter(r=>{
+    if(r.fromBoxId === boxId) return false; // remove rows created by this box
+    if(r.boxContrib && r.boxContrib[boxId] !== undefined){
+      const contrib = parseFloat(r.boxContrib[boxId])||0;
+      const cur = parseFloat(r.qty)||0;
+      r.qty = String(n(Math.max(0, cur - contrib)));
+      delete r.boxContrib[boxId];
+      if(Object.keys(r.boxContrib).length === 0) delete r.boxContrib;
+    }
+    return true;
+  });
+
+  // Step 2: Merge current box rows by name
+  const merged = {};
+  const order = [];
+  b.rows.forEach(r=>{
+    if(!r.name.trim()) return;
+    const name = r.name.trim();
+    if(!merged[name]){ merged[name] = 0; order.push(name); }
+    merged[name] += parseFloat(r.qty)||0;
+  });
+
+  if(!order.length){
+    b.linked = false;
+    save();
+    return null;
+  }
+
+  // Step 3: Add to parent
+  let added = 0, mergedCount = 0;
+  order.forEach(name=>{
+    const qty = n(merged[name]);
+    const existIdx = g.rows.findIndex(r=>r.name.trim()===name && r.fromBoxId !== boxId);
+    if(existIdx>=0){
+      const cur = parseFloat(g.rows[existIdx].qty)||0;
+      g.rows[existIdx].qty = String(n(cur + qty));
+      if(!g.rows[existIdx].boxContrib) g.rows[existIdx].boxContrib = {};
+      g.rows[existIdx].boxContrib[boxId] = qty;
+      mergedCount++;
+    } else {
+      const emptyIdx = g.rows.findIndex(r=>!r.name.trim()&&!r.qty&&!r.price);
+      if(emptyIdx>=0){
+        g.rows[emptyIdx].name = name;
+        g.rows[emptyIdx].qty = String(qty);
+        g.rows[emptyIdx].fromBoxId = boxId;
+      } else {
+        g.rows.push({name:name, qty:String(qty), price:'', fromBoxId:boxId});
+      }
+      added++;
+    }
+  });
+
+  b.linked = true;
+
+  // Ensure empty row at end
+  const last = g.rows[g.rows.length-1];
+  if(last && (last.name.trim()||last.qty||last.price)){
+    g.rows.push(newRow());
+  }
+
+  save();
+  return {added, merged: mergedCount};
+}
+
+// Auto-sync when box changes if linked
+function autoSyncBox(gi, bi){
+  const b = groups[gi] && groups[gi].boxes[bi];
+  if(b && b.linked){
+    syncBoxToParent(gi, bi, false);
+    // Re-render groups (modal is outside #groups so it won't be affected)
+    render();
+    // Explicitly update totals for safety
+    renderTotals(gi);
+  }
+}
+
+/* ====== Name Suggestion ====== */
+function collectAllNames(){
+  const map = {};
+  groups.forEach((g)=>{
+    g.rows.forEach(r=>{
+      const nm = r.name.trim();
+      if(nm){
+        if(!map[nm]) map[nm] = 0;
+        map[nm] += parseFloat(r.qty)||0;
+      }
+    });
+    (g.boxes||[]).forEach((b)=>{
+      b.rows.forEach(r=>{
+        const nm = r.name.trim();
+        if(nm){
+          if(!map[nm]) map[nm] = 0;
+          map[nm] += parseFloat(r.qty)||0;
+        }
+      });
+    });
+  });
+  return map;
+}
+
+let _nsActive = null;
+let _nsItems = [];
+let _nsIdx = -1;
+
+function showNameSuggest(inp, type, gi, param2, param3){
+  _nsActive = inp;
+  const dd = inp.parentElement.querySelector('.ns-dropdown');
+  if(!dd) return;
+  // For parent: param2=ri, param3=undefined; for box: param2=bi, param3=ri
+  const bi = (type==='box') ? param2 : null;
+  const ri = (type==='box') ? param3 : param2;
+  const val = inp.value.trim().toLowerCase();
+  if(!val){ dd.classList.remove('show'); return; }
+  const allNames = collectAllNames();
+  // Count occurrences EXCLUDING the current row being edited
+  const nameCounts = {};
+  groups.forEach((g,gidx)=>{
+    g.rows.forEach((r,ridx)=>{
+      const nm = r.name.trim();
+      if(!nm) return;
+      // Skip current row in parent table
+      if(type==='parent' && gidx===gi && ridx===ri) return;
+      nameCounts[nm] = (nameCounts[nm]||0) + 1;
+    });
+    (g.boxes||[]).forEach((b,bidx)=>{
+      b.rows.forEach((r,ridx)=>{
+        const nm = r.name.trim();
+        if(!nm) return;
+        // Skip current row in box
+        if(type==='box' && gidx===gi && bidx===bi && ridx===ri) return;
+        nameCounts[nm] = (nameCounts[nm]||0) + 1;
+      });
+    });
+  });
+  // Only show names that exist elsewhere (count >= 1)
+  let matches = Object.keys(nameCounts).filter(nm=>{
+    if(nameCounts[nm] < 1) return false;
+    return nm.toLowerCase().includes(val) || val.includes(nm.toLowerCase());
+  });
+  if(val){
+    // Prioritize starts-with matches
+    matches.sort((a,b)=>{
+      const aStarts = a.toLowerCase().startsWith(val) ? 0 : 1;
+      const bStarts = b.toLowerCase().startsWith(val) ? 0 : 1;
+      return aStarts - bStarts;
+    });
+  }
+  matches = matches.slice(0,8);
+  _nsItems = matches;
+  _nsIdx = -1;
+  if(!matches.length){ dd.classList.remove('show'); return; }
+  dd.innerHTML = matches.map((nm,i)=>{
+    const q = allNames[nm];
+    return `<div class="ns-item" data-name="${esc(nm)}" data-idx="${i}" onmousedown="event.preventDefault();pickNameSuggest('${esc(nm)}')">${esc(nm)}${q?`<span class="ns-qty">×${q}</span>`:''}</div>`;
+  }).join('');
+  dd.classList.add('show');
+}
+
+function hideNameSuggest(inp){
+  if(inp === _nsActive){
+    setTimeout(()=>{
+      const dd = inp.parentElement.querySelector('.ns-dropdown');
+      if(dd) dd.classList.remove('show');
+      _nsActive = null;
+    },150);
+  }
+}
+
+function pickNameSuggest(name){
+  if(!_nsActive) return;
+  _nsActive.value = name;
+  // Trigger oninput
+  _nsActive.dispatchEvent(new Event('input',{bubbles:true}));
+  const dd = _nsActive.parentElement.querySelector('.ns-dropdown');
+  if(dd) dd.classList.remove('show');
+  _nsActive = null;
+}
+
+/* Keyboard navigation for name suggestion */
+document.addEventListener('keydown',(e)=>{
+  if(!_nsActive || !_nsItems.length) return;
+  const dd = _nsActive.parentElement.querySelector('.ns-dropdown');
+  if(!dd || !dd.classList.contains('show')) return;
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    _nsIdx = Math.min(_nsIdx+1, _nsItems.length-1);
+    updateNsHighlight(dd);
+  } else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    _nsIdx = Math.max(_nsIdx-1, 0);
+    updateNsHighlight(dd);
+  } else if(e.key==='Enter' && _nsIdx>=0){
+    e.preventDefault();
+    pickNameSuggest(_nsItems[_nsIdx]);
+  } else if(e.key==='Escape'){
+    dd.classList.remove('show');
+    _nsActive = null;
+  }
+});
+function updateNsHighlight(dd){
+  dd.querySelectorAll('.ns-item').forEach((el,i)=>{
+    el.classList.toggle('active', i===_nsIdx);
+  });
+  // Scroll active into view
+  const active = dd.querySelector('.ns-item.active');
+  if(active) active.scrollIntoView({block:'nearest'});
+}
+
+function renderBoxModalList(gi,bi){
+  const b = groups[gi].boxes[bi];
+  const list = document.getElementById('boxModalList');
+  list.innerHTML = b.rows.map((r,ri)=>`
+    <div class="bm-row">
+      <span class="bm-num">${ri+1}</span>
+      <div class="ns-wrap">
+        <input class="bm-inp bm-name" type="text" placeholder="名称" value="${esc(r.name)}"
+          oninput="updBoxRowModal(${gi},${bi},${ri},'name',this.value);showNameSuggest(this,'box',${gi},${bi},${ri})"
+          onfocus="showNameSuggest(this,'box',${gi},${bi},${ri})"
+          onblur="hideNameSuggest(this)" autocomplete="off" />
+        <div class="ns-dropdown"></div>
+      </div>
+      <span class="bm-x">×</span>
+      <input class="bm-inp bm-qty" type="number" min="1" placeholder="0" value="${esc(r.qty)}"
+        oninput="updBoxRowModal(${gi},${bi},${ri},'qty',this.value)" />
+      <span class="bm-sep">|</span>
+      <button class="bm-del" onclick="delBoxRow(${gi},${bi},${ri})">✕</button>
+    </div>
+  `).join('') + `<div class="bm-add" onclick="addBoxRow(${gi},${bi})">＋ 添加一行</div>`;
+}
+
+function updBoxRowModal(gi,bi,ri,field,val){
+  if(!groups[gi].boxes[bi]) return;
+  groups[gi].boxes[bi].rows[ri][field]=val;
+  // Auto-add row
+  if(ri===groups[gi].boxes[bi].rows.length-1 && groups[gi].boxes[bi].rows[ri].name.trim() && groups[gi].boxes[bi].rows[ri].qty){
+    groups[gi].boxes[bi].rows.push({name:'',qty:''});
+    renderBoxModalList(gi,bi);
+  }
+  save();
+  autoSyncBox(gi,bi);
+}
+function delGroup(i){
+  const g = groups[i];
+  const title = g.title || '未命名';
+  showConfirm(`删除「${title}」？`, '删除后可点恢复撤回', '🗑', ()=>{
+    groupTrash.push({...g, origIdx:i});
+    if(groups.length<=1) groups=[newGroup()];
+    else groups.splice(i,1);
+    save(); render();
+    toast('已删除，可点底部恢复');
+  });
+}
+function restoreGroup(){
+  if(!groupTrash.length){ toast('没有可恢复的'); return; }
+  const g = groupTrash.pop();
+  groups.push(g);
+  save(); render();
+  toast('已恢复');
+}
+function updGroup(i,f,v){ groups[i][f]=v; save(); }
+
+/* ====== Unlock title (double-click) ====== */
+function unlockTitle(el,gi){
+  el.classList.remove('locked');
+  el.classList.add('unlocked');
+  el.removeAttribute('readonly');
+  el.focus();
+  el.select();
+  const relock = ()=>{
+    el.classList.add('locked');
+    el.classList.remove('unlocked');
+    el.setAttribute('readonly','');
+    el.removeEventListener('blur',relock);
+    el.removeEventListener('keydown',onKey);
+    el.removeEventListener('click',stopProp);
+  };
+  const onKey = (e)=>{
+    if(e.key==='Enter'){ el.blur(); }
+    if(e.key==='Escape'){ el.blur(); }
+  };
+  const stopProp = (e)=>{ e.stopPropagation(); };
+  el.addEventListener('blur',relock);
+  el.addEventListener('keydown',onKey);
+  el.addEventListener('click',stopProp);
+}
+
+/* ====== Date Picker ====== */
+let dpGi = null;
+let dpY=2026, dpM=9, dpD=8;
+
+function openDatePicker(gi){
+  dpGi = gi;
+  const d = groups[gi].date;
+  // Parse "2026/9/8" format
+  const parts = d.split('/');
+  dpY = parseInt(parts[0])||2026;
+  dpM = parseInt(parts[1])||1;
+  dpD = parseInt(parts[2])||1;
+  buildWheels();
+  document.getElementById('dpBg').classList.add('show');
+}
+
+function buildWheels(){
+  const yearEl = document.getElementById('dpYear');
+  const monthEl = document.getElementById('dpMonth');
+  const dayEl = document.getElementById('dpDay');
+
+  // Years: 2020-2030
+  yearEl.innerHTML = '';
+  for(let y=2020;y<=2030;y++){
+    const it = document.createElement('div');
+    it.className='dp-item'+(y===dpY?' active':'');
+    it.textContent=y;
+    it.dataset.val=y;
+    yearEl.appendChild(it);
+  }
+
+  // Months 1-12
+  monthEl.innerHTML = '';
+  for(let m=1;m<=12;m++){
+    const it = document.createElement('div');
+    it.className='dp-item'+(m===dpM?' active':'');
+    it.textContent=m;
+    it.dataset.val=m;
+    monthEl.appendChild(it);
+  }
+
+  // Days 1-31
+  const days = new Date(dpY,dpM,0).getDate();
+  dayEl.innerHTML = '';
+  for(let d=1;d<=days;d++){
+    const it = document.createElement('div');
+    it.className='dp-item'+(d===dpD?' active':'');
+    it.textContent=d;
+    it.dataset.val=d;
+    dayEl.appendChild(it);
+  }
+
+  // Scroll to positions (center alignment: item idx * 40, but wheel height 120px, center at 60px, so offset = idx*40 - 40)
+  setTimeout(()=>{
+    yearEl.scrollTop = (dpY-2020)*40 - 40;
+    if(yearEl.scrollTop<0) yearEl.scrollTop=0;
+    monthEl.scrollTop = (dpM-1)*40 - 40;
+    if(monthEl.scrollTop<0) monthEl.scrollTop=0;
+    dayEl.scrollTop = (dpD-1)*40 - 40;
+    if(dayEl.scrollTop<0) dayEl.scrollTop=0;
+    attachWheel(yearEl,'y');
+    attachWheel(monthEl,'m');
+    attachWheel(dayEl,'d');
+  },10);
+}
+
+function attachWheel(el,type){
+  const items = el.querySelectorAll('.dp-item');
+  el.onscroll = ()=>{
+    const idx = Math.round((el.scrollTop + 40)/40);
+    const clamped = Math.max(0,Math.min(items.length-1,idx));
+    items.forEach((it,i)=>it.classList.toggle('active',i===clamped));
+    const val = parseInt(items[clamped].dataset.val);
+    if(type==='y'){ dpY=val; rebuildDays(); }
+    if(type==='m'){ dpM=val; rebuildDays(); }
+  };
+}
+
+function rebuildDays(){
+  const dayEl = document.getElementById('dpDay');
+  const days = new Date(dpY,dpM,0).getDate();
+  if(dpD>days) dpD=days;
+  dayEl.innerHTML='';
+  for(let d=1;d<=days;d++){
+    const it=document.createElement('div');
+    it.className='dp-item'+(d===dpD?' active':'');
+    it.textContent=d; it.dataset.val=d;
+    dayEl.appendChild(it);
+  }
+  dayEl.scrollTop=(dpD-1)*40-40;
+  if(dayEl.scrollTop<0) dayEl.scrollTop=0;
+  // Re-attach scroll
+  const items = dayEl.querySelectorAll('.dp-item');
+  dayEl.onscroll=()=>{
+    const idx=Math.round((dayEl.scrollTop+40)/40);
+    const clamped=Math.max(0,Math.min(items.length-1,idx));
+    items.forEach((it,i)=>it.classList.toggle('active',i===clamped));
+    const val=parseInt(items[clamped].dataset.val);
+    if(val) dpD=val;
+  };
+}
+
+function dpConfirm(){
+  if(dpGi!==null){
+    const newDate = `${dpY}/${dpM}/${dpD}`;
+    groups[dpGi].date = newDate;
+    save();
+    render();
+    toast('日期已更新');
+  }
+  dpCancel();
+}
+function dpCancel(){
+  document.getElementById('dpBg').classList.remove('show');
+  dpGi=null;
+}
+
+/* ====== Custom Confirm Modal ====== */
+let cfmCallback = null;
+function showConfirm(title, sub, icon, callback){
+  document.getElementById('cfmTitle').textContent = title || '确认操作？';
+  document.getElementById('cfmSub').textContent = sub || '';
+  document.getElementById('cfmIcon').textContent = icon || '🗑';
+  cfmCallback = callback;
+  document.getElementById('cfmBg').classList.add('show');
+}
+function cfmConfirm(){
+  document.getElementById('cfmBg').classList.remove('show');
+  if(cfmCallback){ const cb=cfmCallback; cfmCallback=null; cb(); }
+}
+function cfmCancel(){
+  document.getElementById('cfmBg').classList.remove('show');
+  cfmCallback = null;
+}
+
+/* ====== Row ops ====== */
+function addRow(gi){
+  groups[gi].rows.push(newRow());
+  save(); render();
+  setTimeout(()=>{
+    const rows = document.querySelectorAll(`.row[data-gid="${groups[gi].id}"]`);
+    if(rows.length){ rows[rows.length-1].querySelector('.inp-name').focus(); }
+  },50);
+}
+function delRow(gi,ri){
+  const r = groups[gi].rows[ri];
+  if(!r.name.trim() && !r.qty && !r.price){
+    if(groups[gi].rows.length<=1) groups[gi].rows=[newRow()];
+    else groups[gi].rows.splice(ri,1);
+    save(); render();
+    return;
+  }
+  showConfirm(`删除「${r.name||'未命名'}」？`, '删除后可点恢复撤回', '🗑', ()=>{
+    trash.push({gi, row:{...r}, ri});
+    if(groups[gi].rows.length<=1) groups[gi].rows=[newRow()];
+    else groups[gi].rows.splice(ri,1);
+    save(); render();
+    toast('已删除，可点恢复撤回');
+  });
+}
+function restoreRow(gi){
+  // Find last deleted item for this group
+  const idx = trash.map(t=>t.gi).lastIndexOf(gi);
+  if(idx===-1){ toast('没有可恢复的'); return; }
+  const item = trash.splice(idx,1)[0];
+  groups[gi].rows.splice(item.ri, 0, item.row);
+  save(); render();
+  toast('已恢复');
+}
+function updRow(gi,ri,f,v){
+  groups[gi].rows[ri][f]=v;
+  const rowEl = document.querySelector(`.row[data-gid="${groups[gi].id}"][data-rid="${ri}"]`);
+  if(rowEl){
+    rowEl.querySelector('.total').textContent = calc(groups[gi].rows[ri]);
+  }
+  renderTotals(gi);
+  save();
+}
+
+// Centralized total update for a group
+function renderTotals(gi){
+  const g = groups[gi];
+  if(!g) return;
+  const grpEl = document.querySelector(`.group[data-gid="${g.id}"]`);
+  if(!grpEl) return;
+  const total = grpTotal(g);
+  const count = validRows(g).length;
+  // Header mini total
+  const mini = grpEl.querySelector('.grp-sum-mini');
+  if(mini) mini.textContent = total;
+  // Footer total + count
+  const sumN = grpEl.querySelector('.grp-sum .n');
+  if(sumN) sumN.textContent = count;
+  const sumTotal = grpEl.querySelector('.grp-sum-total');
+  if(sumTotal) sumTotal.textContent = total;
+  // Per-row totals
+  g.rows.forEach((r,ri)=>{
+    const rowEl = grpEl.querySelector(`.row[data-rid="${ri}"]`);
+    if(rowEl){
+      const t = rowEl.querySelector('.total');
+      if(t) t.textContent = calc(r);
+    }
+  });
+}
+
+/* ====== Photo upload ====== */
+function handleGroupFiles(gi,files){
+  [...files].forEach(f=>{
+    if(!f.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      compress(ev.target.result,800,.75,data=>{
+        groups[gi].photos.push(data);
+        save(); render();
+      });
+    };
+    reader.readAsDataURL(f);
+  });
+}
+function rmPhoto(gi,j){
+  groups[gi].photos.splice(j,1);
+  save(); render();
+}
+function handleBoxFiles(files){
+  if(_boxModalGI===null||_boxModalBI===null) return;
+  const gi=_boxModalGI, bi=_boxModalBI;
+  [...files].forEach(f=>{
+    if(!f.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      compress(ev.target.result,800,.75,data=>{
+        groups[gi].boxes[bi].photos.push(data);
+        save();
+        renderBoxPhotos(gi,bi);
+      });
+    };
+    reader.readAsDataURL(f);
+  });
+}
+function rmBoxPhoto(j){
+  if(_boxModalGI===null||_boxModalBI===null) return;
+  const gi=_boxModalGI, bi=_boxModalBI;
+  groups[gi].boxes[bi].photos.splice(j,1);
+  save();
+  renderBoxPhotos(gi,bi);
+}
+function renderBoxPhotos(gi,bi){
+  const b = groups[gi].boxes[bi];
+  const grid = document.getElementById('bmPhotoGrid');
+  if(!grid) return;
+  if(!b.photos.length){ grid.innerHTML=''; return; }
+  grid.innerHTML = b.photos.map((p,j)=>`
+    <div class="pgm-item"><img src="${p}"/><button class="rm" onclick="rmBoxPhoto(${j})">✕</button></div>
+  `).join('');
+}
+function compress(src,mw,q,cb){
+  const im=new Image();
+  im.onload=()=>{let{width:w,height:h}=im;if(w>mw){h=h*mw/w;w=mw;}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);cb(c.toDataURL('image/jpeg',q));};
+  im.src=src;
+}
+
+/* ====== Copy ====== */
+function copyGroup(gi){
+  const g = groups[gi];
+  const valid = validRows(g);
+  if(!valid.length){ toast('请先填写产品'); return; }
+  let txt = valid.map(r=>{
+    const q=n(r.qty), p=n(r.price), t=n(q*p);
+    return `${r.name}*${q}，${q}*${p}=${t}`;
+  }).join('\n');
+  let allTotal = valid.reduce((s,r)=>s+calc(r),0);
+  txt += '\n合计' + n(allTotal) + '元';
+  doCopy(txt);
+}
+
+function doCopy(txt){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>toast('✅ 已复制')).catch(()=>fallbackCopy(txt));
+  } else { fallbackCopy(txt); }
+}
+function fallbackCopy(txt){
+  const ta=document.createElement('textarea'); ta.value=txt; ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{document.execCommand('copy');toast('✅ 已复制');}catch(e){toast('❌ 复制失败');}
+  document.body.removeChild(ta);
+}
+
+/* ====== Export / Clear ====== */
+function exportJSON(){
+  const data = groups.map(g=>({title:g.title,date:g.date,rows:validRows(g),photos:g.photos}));
+  if(!data.some(d=>d.rows.length)){toast('暂无数据');return;}
+  dl(JSON.stringify(data,null,2),'records.json','application/json');toast('JSON 已导出');
+}
+function dl(content,filename,mime){const blob=new Blob([content],{type:mime});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();URL.revokeObjectURL(a.href);}
+function clearAll(){
+  showConfirm('清空全部？', '所有记录将被删除，不可恢复', '🗑', ()=>{
+    groups=[newGroup()];trash=[];groupTrash=[];save();render();toast('已清空');
+  });
+}
+
+/* Utils */
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+let tt;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2000);}
+
+load();render();loadSyncCfg();syncPull();
+// 每隔一段时间自动拉取一次
+setInterval(()=>{ if(syncCfg&&syncCfg.token) syncPull(); },30000);
+</script>
+</body>
+</html>
