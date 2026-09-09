@@ -9,26 +9,26 @@
 <title>暖记 · 台</title>
 <style>
   *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-  html{background:#ede5df !important;min-height:100%;}
+  html{background:#f0e9ed !important;min-height:100%;}
   :root{
-    --bg:#f5f3f0; --card:#fff; --text:#2c2a28; --soft:#9a948e;
-    --accent:#7c6a5e; --accent-soft:#efe7e1;
-    --pink:#f7e8e1; --pink-deep:#d4a598;
-    --border:#e8e3df; --border-light:#f0ece8;
+    --bg:#f6f1f3; --card:#fff; --text:#2a2730; --soft:#9b94a0; --light:#b8b0b8;
+    --accent:#c05a7e; --accent-soft:#fbe9f1;
+    --pink:#fce9f0; --pink-deep:#e896a8;
+    --border:#e9e0e5; --border-light:#f3ebef;
     --radius:14px; --radius-sm:8px;
     --shadow:none;
     --font:'Noto Sans CJK SC','PingFang SC','Microsoft YaHei',sans-serif;
     /* Group color themes - 5 distinct colors */
-    --c1-bg:#fef3f0; --c1-deep:#d4a598; --c1-bar:#e8a595;
+    --c1-bg:#fef0f4; --c1-deep:#d97a96; --c1-bar:#e896ae;
     --c2-bg:#f0f4ed; --c2-deep:#7a9b6e; --c2-bar:#8faa7d;
     --c3-bg:#eef1f6; --c3-deep:#6e86a8; --c3-bar:#7d96ba;
     --c4-bg:#f5f0f5; --c4-deep:#9a7a9e; --c4-bar:#a88ab0;
-    --c5-bg:#f7f2ea; --c5-deep:#b89860; --c5-bar:#c4a66a;
+    --c5-bg:#eaf6f4; --c5-deep:#5e9a8e; --c5-bar:#7ab0a4;
   }
 
   body{
     font-family:var(--font);
-    background:#ede5df !important; color:var(--text);
+    background:#f0e9ed !important; color:var(--text);
     min-height:100vh; -webkit-font-smoothing:antialiased;
     padding:20px 0 0;
   }
@@ -40,7 +40,7 @@
   .brand{display:flex;align-items:center;gap:8px;}
   .brand-icon{
     font-size:22px;line-height:1;
-    color:#d4a598;
+    color:#e896ae;
     display:flex;align-items:center;justify-content:center;
   }
   .brand-name{font-size:16px;font-weight:700;color:var(--text);letter-spacing:.5px;}
@@ -100,7 +100,7 @@
   }
   .grp-title.locked{cursor:pointer;}
   .grp-title.unlocked{border-bottom:1.5px solid var(--gdeep,var(--c1-deep));background:rgba(255,255,255,.6);border-radius:4px;cursor:text;}
-  .grp-title::placeholder{color:#bdb5af;font-weight:500;font-size:14px;}
+  .grp-title::placeholder{color:#bcb4bc;font-weight:500;font-size:14px;}
   .grp-status-txt{
     flex:0 0 auto;font-size:12px;font-weight:700;color:var(--gdeep,var(--c1-deep));
     padding:3px 8px;border-radius:6px;white-space:nowrap;
@@ -108,9 +108,9 @@
   }
   .grp-spacer{flex:0 0 6px;}
   .grp-date{
-    font-size:12px;color:var(--soft);font-weight:600;flex-shrink:0;
+    font-size:14px;color:var(--soft);font-weight:600;flex-shrink:0;
     background:rgba(255,255,255,.5);border:none;outline:none;font-family:var(--font);
-    width:70px;padding:3px 6px;text-align:right;cursor:pointer;
+    width:82px;padding:3px 6px;text-align:right;cursor:pointer;
     border-radius:6px;transition:all .2s;margin-right:4px;
   }
   .grp-date:hover{color:var(--gdeep,var(--c1-deep));background:rgba(255,255,255,.8);}
@@ -120,7 +120,7 @@
     margin-right:2px;
   }
   .grp-del{
-    border:none;background:transparent;color:#c8c2bd;
+    border:none;background:transparent;color:#c8c0c8;
     font-size:14px;cursor:pointer;
     width:24px;height:24px;border-radius:6px;
     display:flex;align-items:center;justify-content:center;
@@ -165,9 +165,9 @@
   .rh-sep4{grid-column:9;}
   .rh-del{grid-column:10;}
   .col-sep{color:var(--soft);font-size:11px;font-weight:600;text-align:center;user-select:none;}
-  .row-num{font-size:12px;color:#c8c2bd;font-weight:600;grid-column:1;flex-shrink:0;text-align:right;}
+  .row-num{font-size:12px;color:#c8c0c8;font-weight:600;grid-column:1;flex-shrink:0;text-align:right;}
   .inp{
-    border:none;border-bottom:1.5px dashed #d5cfc9;
+    border:none;border-bottom:1.5px dashed #d8d0d6;
     background:transparent;padding:3px 2px;font-size:14px;
     color:var(--text);outline:none;font-family:var(--font);
     transition:all .2s;border-radius:0;
@@ -230,7 +230,7 @@
 
   /* Photo upload at bottom */
   .grp-photos{
-    padding:8px 0 10px;border-top:1px solid var(--border-light);background:#faf9f7;
+    padding:8px 0 10px;border-top:1px solid var(--border-light);background:#faf7f9;
   }
   .photo-upload-zone{
     width:36px;height:36px;border-radius:50%;
@@ -327,7 +327,7 @@
   .bn-1{background:#d4b8e0;}
   .bn-2{background:#b8d4e8;}
   .bn-3{background:#b8e0c8;}
-  .bn-4{background:#ffd166;}
+  .bn-4{background:#9fd8d0;}
   .bn-5{background:#f8b8d0;}
   .box-num-del{
     position:absolute;top:-5px;right:-5px;width:16px;height:16px;
@@ -354,7 +354,7 @@
   .status-tag:hover{filter:brightness(1.02);}
   .status-tag:active{filter:brightness(.92);}
   .st-0{background:#f8b4c4;}
-  .st-1{background:#ffd166;color:#333;}
+  .st-1{background:#9fd8d0;color:#333;}
   .st-2{background:#b8d4e8;}
   .st-3{background:#d4b8e0;}
 
@@ -370,7 +370,7 @@
   .st-opt:hover{background:var(--accent-soft);border-color:var(--accent);}
   .st-opt:active{transform:scale(.98);}
   .st-opt-0:hover{background:#fef0f3;border-color:#f8b4c4;color:#e896a8;}
-  .st-opt-1:hover{background:#fff8e6;border-color:#ffd166;color:#d4a020;}
+  .st-opt-1:hover{background:#e6f6f3;border-color:#9fd8d0;color:#4ea89e;}
   .st-opt-2:hover{background:#eef4fa;border-color:#b8d4e8;color:#6a9bc4;}
   .st-opt-3:hover{background:#f5eefa;border-color:#d4b8e0;color:#a87cc0;}
   .st-ic{font-size:16px;}
@@ -442,11 +442,11 @@
     background:#fff;color:var(--soft);font-size:13px;font-weight:700;
     cursor:pointer;transition:filter .12s;
   }
-  .bm-copy:hover{border-color:#c8c2bd;color:var(--accent);filter:brightness(1.02);}
+  .bm-copy:hover{border-color:#c8c0c8;color:var(--accent);filter:brightness(1.02);}
   .bm-copy:active{filter:brightness(.95);}
   .bm-fill{
     flex:1;padding:11px;border:none;border-radius:10px;
-    background:#ffd166;color:#333;font-size:13px;font-weight:700;
+    background:#9fd8d0;color:#333;font-size:13px;font-weight:700;
     cursor:pointer;transition:filter .12s;
   }
   .bm-fill:hover{filter:brightness(1.02);}
@@ -461,7 +461,7 @@
 
   .bm-photos{
     padding:10px 16px;border-top:1px solid var(--border-light);
-    background:#faf9f7;
+    background:#faf7f9;
   }
   .bm-photos .photo-grid-mini{padding:0;margin-top:8px;}
 
@@ -581,7 +581,7 @@
       grid-template-columns:12px 1fr 4px 28px 4px 36px 4px 38px 4px 20px;
       gap:3px;padding-left:6px;padding-right:6px;
     }
-    .grp-date{width:80px;}
+    .grp-date{width:88px;font-size:13px;}
     .brand-name{font-size:14px;}
     .header-actions{gap:4px;}
     .btn{padding:6px 10px;font-size:11px;}
