@@ -260,12 +260,12 @@
     top:12px;right:12px;
   }
   .photo-grid-mini{
-    display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));
-    gap:5px;margin-top:8px;padding:0 12px;
+    display:grid;grid-template-columns:repeat(auto-fill,40px);
+    gap:5px;margin-top:8px;padding:0 12px;justify-content:start;
   }
   /* 默认只显示两行，超出折叠，避免母表被图片撑得过长 */
   .photo-grid-mini.grid-closed{
-    max-height:101px;overflow:hidden;position:relative;
+    max-height:85px;overflow:hidden;position:relative;
   }
   .grid-more-btn{
     display:block;width:100%;margin-top:4px;padding:5px 0;
@@ -1920,7 +1920,7 @@ function handleGroupFiles(gi,files){
     if(!f.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = ev=>{
-      compress(ev.target.result,640,.6,data=>{
+      compress(ev.target.result,1080,.82,data=>{
         groups[gi].photos.push(data);
         save(); render();
       });
@@ -1946,7 +1946,7 @@ function handleBoxFiles(files){
     if(!f.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = ev=>{
-      compress(ev.target.result,640,.6,data=>{
+      compress(ev.target.result,1080,.82,data=>{
         groups[gi].boxes[bi].photos.push(data);
         save();
         renderBoxPhotos(gi,bi);
