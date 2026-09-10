@@ -934,9 +934,9 @@ function openSyncSettings(){
   document.getElementById('syncFile').value = syncCfg?.file||'data.json';
   document.getElementById('syncToken').value = syncCfg?.token||'';
   document.getElementById('syncSecret').value = syncCfg?.secret||'';
-  document.getElementById('syncBg').style.display='flex';
+  document.getElementById('syncBg').classList.add('show');
 }
-function closeSyncSettings(){ document.getElementById('syncBg').style.display='none'; }
+function closeSyncSettings(){ document.getElementById('syncBg').classList.remove('show'); }
 async function saveSyncSettings(){
   const user=document.getElementById('syncUser').value.trim();
   const repo=document.getElementById('syncRepo').value.trim();
