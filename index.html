@@ -611,12 +611,15 @@
     .ftab{padding:5px 10px;font-size:11px;}
   }
 
-  /* 桌面/宽屏：数量、单价、金额保持紧凑，名称列尽量留宽 */
+  /* 桌面/宽屏：数量、单价、金额保持紧凑，名称列尽量留宽；行间距收紧更密集 */
   @media(min-width:481px){
     .row,.row-head{
       grid-template-columns:20px 1fr 6px 48px 6px 62px 6px 58px 6px 26px;
       gap:5px;
     }
+    .row{ padding-top:3px; padding-bottom:3px; }
+    .inp{ padding-top:2px; padding-bottom:2px; }
+    .add-row{ padding-top:7px; padding-bottom:7px; }
     .inp-num,.inp-price{font-size:15px;}
   }
 
