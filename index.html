@@ -1138,15 +1138,18 @@ function render(){
               <input class="inp inp-name" type="text" placeholder="名称" value="${esc(r.name)}"
                 oninput="updRow(${gi},${ri},'name',this.value);showNameSuggest(this,'parent',${gi},${ri})"
                 onfocus="showNameSuggest(this,'parent',${gi},${ri})"
+                onkeydown="rowEnter(event,${gi},${ri},'name')"
                 onblur="hideNameSuggest(this)" autocomplete="off" />
               <div class="ns-dropdown"></div>
             </div>
             <span class="col-sep">|</span>
             <input class="inp inp-num" type="number" min="1" placeholder="0" value="${esc(r.qty)}"
-              oninput="updRow(${gi},${ri},'qty',this.value)" />
+              oninput="updRow(${gi},${ri},'qty',this.value)"
+              onkeydown="rowEnter(event,${gi},${ri},'qty')" />
             <span class="col-sep">*</span>
             <input class="inp inp-price" type="number" min="0" step="0.01" placeholder="0" value="${esc(r.price)}"
-              oninput="updRow(${gi},${ri},'price',this.value)" />
+              oninput="updRow(${gi},${ri},'price',this.value)"
+              onkeydown="rowEnter(event,${gi},${ri},'price')" />
             <span class="col-sep">=</span>
             <span class="total">${calc(r)}</span>
             <span class="col-sep">|</span>
@@ -1390,6 +1393,31 @@ function updBoxTitle(gi,bi,val){
   save();
 }
 function addBoxRow(gi,bi){ groups[gi].boxes[bi].rows.push({name:'',qty:''}); save(); renderBoxModalList(gi,bi); }
+/* 子表回车跳列：名称→数量→下一行名称（末行则新增一行） */
+function boxRowEnter(e, gi, bi, field){
+  if(e.key!=='Enter') return;
+  if(field==='name' && _nsActive && _nsItems.length && _nsIdx>=0){
+    const dd=_nsActive.parentElement && _nsActive.parentElement.querySelector('.ns-dropdown');
+    if(dd && dd.classList.contains('show')) return;
+  }
+  e.preventDefault();
+  const row=e.target.closest('.bm-row');
+  if(!row) return;
+  const focusEl=(el)=>{ if(el){ el.focus(); try{el.select();}catch(_){} } };
+  if(field==='name'){
+    focusEl(row.querySelector('.bm-qty'));
+  }else if(field==='qty'){
+    const list=document.getElementById('boxModalList');
+    const rows=[...list.querySelectorAll('.bm-row')];
+    const next=rows[rows.indexOf(row)+1];
+    if(next){ focusEl(next.querySelector('.bm-name')); }
+    else {
+      addBoxRow(gi,bi);
+      const all=list.querySelectorAll('.bm-row');
+      focusEl(all[all.length-1] && all[all.length-1].querySelector('.bm-name'));
+    }
+  }
+}
 function delBoxRow(gi,bi,ri){
   const r = groups[gi].boxes[bi].rows[ri];
   if(!r.name.trim() && !r.qty){
@@ -1687,12 +1715,14 @@ function renderBoxModalList(gi,bi){
         <input class="bm-inp bm-name" type="text" placeholder="名称" value="${esc(r.name)}"
           oninput="updBoxRowModal(${gi},${bi},${ri},'name',this.value);showNameSuggest(this,'box',${gi},${bi},${ri})"
           onfocus="showNameSuggest(this,'box',${gi},${bi},${ri})"
+          onkeydown="boxRowEnter(event,${gi},${bi},'name')"
           onblur="hideNameSuggest(this)" autocomplete="off" />
         <div class="ns-dropdown"></div>
       </div>
       <span class="bm-x">*</span>
       <input class="bm-inp bm-qty" type="number" min="1" placeholder="0" value="${esc(r.qty)}"
-        oninput="updBoxRowModal(${gi},${bi},${ri},'qty',this.value)" />
+        oninput="updBoxRowModal(${gi},${bi},${ri},'qty',this.value)"
+        onkeydown="boxRowEnter(event,${gi},${bi},'qty')" />
       <span class="bm-sep">|</span>
       <button class="bm-del" onclick="delBoxRow(${gi},${bi},${ri})">✕</button>
     </div>
@@ -1932,6 +1962,29 @@ function addRow(gi){
     const rows = document.querySelectorAll(`.row[data-gid="${groups[gi].id}"]`);
     if(rows.length){ rows[rows.length-1].querySelector('.inp-name').focus(); }
   },50);
+}
+/* 回车自动跳列：名称→数量→单价→下一行名称（末行则新增一行） */
+function rowEnter(e, gi, ri, field){
+  if(e.key!=='Enter') return;
+  // 名称候选下拉有高亮项时，交给全局回车选中候选词，不跳列
+  if(field==='name' && _nsActive && _nsItems.length && _nsIdx>=0){
+    const dd=_nsActive.parentElement && _nsActive.parentElement.querySelector('.ns-dropdown');
+    if(dd && dd.classList.contains('show')) return;
+  }
+  e.preventDefault();
+  const row=e.target.closest('.row');
+  if(!row) return;
+  const focusEl=(el)=>{ if(el){ el.focus(); try{el.select();}catch(_){} } };
+  if(field==='name'){
+    focusEl(row.querySelector('.inp-num'));
+  }else if(field==='qty'){
+    focusEl(row.querySelector('.inp-price'));
+  }else if(field==='price'){
+    const rows=[...row.parentElement.querySelectorAll('.row')];
+    const next=rows[rows.indexOf(row)+1];
+    if(next){ focusEl(next.querySelector('.inp-name')); }
+    else { addRow(gi); } // addRow 会自动聚焦新行名称
+  }
 }
 function delRow(gi,ri){
   const r = groups[gi].rows[ri];
