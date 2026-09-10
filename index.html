@@ -623,6 +623,8 @@
     .inp{ padding-top:2px; padding-bottom:2px; }
     .add-row{ padding-top:7px; padding-bottom:7px; }
     .inp-num,.inp-price{font-size:15px;}
+    .grp-head{ cursor:grab; }
+    .grp-head:active{ cursor:grabbing; }
   }
 
   /* Sync settings */
@@ -1279,30 +1281,35 @@ function render(){
         currentX = 0;
       });
 
-      // Mouse events for desktop
+      // Mouse events for desktop（按住表头/空白处向左拖出删除）
+      let _moved=false;
       content.addEventListener('mousedown',(e)=>{
-        if(e.target.tagName==='INPUT' || e.target.tagName==='BUTTON' || e.target.classList.contains('grp-date')) return;
-        startX = e.clientX;
-        dragging = true;
+        // 跳过按钮、可编辑输入框、添加行、子表数字、图片等交互区；只读标题/日期可起拖
+        if(e.target.closest('button, textarea, .add-row, .box-num, .box-num-add, .pgm-item, .grp-restore, .grp-copy, .grp-restore-btn, .grid-more-btn')) return;
+        if(e.target.closest('input') && !e.target.closest('input[readonly]')) return;
+        startX = e.clientX; currentX = 0; dragging = true; _moved=false;
         content.style.transition = 'none';
         const onMove = (ev)=>{
           if(!dragging) return;
           currentX = ev.clientX - startX;
-          if(currentX < 0 && currentX > -80){
-            content.style.transform = `translateX(${currentX}px)`;
+          if(Math.abs(currentX) > 8){
+            _moved = true;
+            if(typeof longPressEnd==='function') longPressEnd(); // 拖动时取消日期长按
+            ev.preventDefault();
+          }
+          if(currentX < 0){
+            content.style.transform = `translateX(${Math.max(currentX,-80)}px)`;
           }
         };
         const onUp = ()=>{
           if(!dragging) return;
           dragging = false;
           content.style.transition = 'transform .25s ease';
-          if(currentX < -40){
-            content.classList.add('swiped');
-            content.style.transform = '';
-          } else {
-            content.classList.remove('swiped');
-            content.style.transform = '';
-          }
+          if(currentX < -40){ content.classList.add('swiped'); }
+          else { content.classList.remove('swiped'); }
+          content.style.transform = '';
+          // 真实拖动后吞掉本次松手合成的 click，避免误折叠/立刻收回
+          if(_moved){ _swallowClick = true; setTimeout(()=>{_swallowClick=false;},120); }
           currentX = 0;
           document.removeEventListener('mousemove',onMove);
           document.removeEventListener('mouseup',onUp);
@@ -2166,6 +2173,16 @@ document.addEventListener('click',(e)=>{
     });
   }
 });
+
+// 电脑端鼠标拖动后吞掉合成的 click（捕获阶段最先执行，阻止折叠/收回）
+let _swallowClick=false;
+document.addEventListener('click',(e)=>{
+  if(_swallowClick){
+    _swallowClick=false;
+    e.stopPropagation();
+    e.preventDefault();
+  }
+},true);
 
 // 全局禁用长按/右键菜单，但放行输入框（方便粘贴）
 document.addEventListener('contextmenu',(e)=>{
