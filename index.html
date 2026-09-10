@@ -764,14 +764,19 @@
         <span>Personal Token</span>
         <input type="password" id="syncToken" placeholder="ghp_ 开头的令牌" />
       </label>
+      <label>
+        <span>数据加密密码（选填）</span>
+        <input type="password" id="syncSecret" placeholder="填了就加密上传，留空则不加密" autocomplete="new-password" />
+      </label>
     </div>
     <div class="cfm-btns">
       <button class="cfm-btn cfm-cancel" onclick="closeSyncSettings()">取消</button>
       <button class="cfm-btn cfm-ok" onclick="saveSyncSettings()">保存并连接</button>
     </div>
     <div class="sync-hint">
-      <p>💡 Token 只存在你本地浏览器，不会上传到任何地方</p>
-      <p>💡 Token 需要有 repo 权限</p>
+      <p>💡 Token 和密码都只存在你本地浏览器，不会上传到任何地方</p>
+      <p>🔒 填写密码后，云端 data.json 会加密成乱码，别人即使看到仓库也读不到内容</p>
+      <p>⚠️ 加密密码请务必牢记，忘记后云端数据无法解密恢复</p>
     </div>
   </div>
 </div>
@@ -907,22 +912,25 @@ function openSyncSettings(){
   document.getElementById('syncBranch').value = syncCfg?.branch||'main';
   document.getElementById('syncFile').value = syncCfg?.file||'data.json';
   document.getElementById('syncToken').value = syncCfg?.token||'';
+  document.getElementById('syncSecret').value = syncCfg?.secret||'';
   document.getElementById('syncBg').style.display='flex';
 }
 function closeSyncSettings(){ document.getElementById('syncBg').style.display='none'; }
-function saveSyncSettings(){
+async function saveSyncSettings(){
   const user=document.getElementById('syncUser').value.trim();
   const repo=document.getElementById('syncRepo').value.trim();
   const branch=document.getElementById('syncBranch').value.trim()||'main';
   const file=document.getElementById('syncFile').value.trim()||'data.json';
   const token=document.getElementById('syncToken').value.trim();
+  const secret=document.getElementById('syncSecret').value; // 密码不去空格，保留原样
   if(!user||!repo||!token){ toast('请填写完整信息'); return; }
-  syncCfg={user,repo,branch,file,token};
+  syncCfg={user,repo,branch,file,token,secret};
   localStorage.setItem('xz_sync',JSON.stringify(syncCfg));
   updateSyncStatusUI();
   closeSyncSettings();
-  toast('已保存，正在同步...');
-  syncPull(true);
+  toast(secret?'已保存，正在加密同步...':'已保存，正在同步...');
+  await syncPull(true);   // 先尝试拉取合并（密码正确才解得了）
+  syncPush(true);         // 再用当前密码把数据加密推上云端
 }
 function ghApi(path,opts={}){
   const headers={'Authorization':`token ${syncCfg.token}`,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'};
@@ -932,53 +940,104 @@ function ghApi(path,opts={}){
     return r.json();
   });
 }
-function syncPull(forceMerge=false){
-  if(!syncCfg||!syncCfg.token) return Promise.resolve();
-  return ghApi(syncCfg.file).then(data=>{
-    if(!data){ 
+
+/* ====== 端到端加密（AES-GCM + PBKDF2，密码不落云端）====== */
+function _u8ToB64(bytes){
+  let bin=''; const arr=new Uint8Array(bytes);
+  for(let i=0;i<arr.length;i++) bin+=String.fromCharCode(arr[i]);
+  return btoa(bin);
+}
+function _b64ToU8(b64){
+  const bin=atob(b64); const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return arr;
+}
+async function _deriveKey(pw, salt){
+  const ik=await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:150000, hash:'SHA-256'},
+    ik, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']
+  );
+}
+// 明文字符串 -> 可 JSON 序列化的加密对象
+async function encryptStr(str, pw){
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const key=await _deriveKey(pw, salt);
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, new TextEncoder().encode(str));
+  return {_enc:true, v:1, salt:_u8ToB64(salt), iv:_u8ToB64(iv), ct:_u8ToB64(ct)};
+}
+// 加密对象 -> 明文字符串；密码错误会抛异常
+async function decryptObj(obj, pw){
+  const key=await _deriveKey(pw, _b64ToU8(obj.salt));
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM', iv:_b64ToU8(obj.iv)}, key, _b64ToU8(obj.ct));
+  return new TextDecoder().decode(pt);
+}
+async function syncPull(forceMerge=false){
+  if(!syncCfg||!syncCfg.token) return;
+  try{
+    const data=await ghApi(syncCfg.file);
+    if(!data){
       // 文件不存在，把当前数据推上去
-      return syncPush(true); 
+      return syncPush(true);
     }
-    try{
-      const content=JSON.parse(atob(data.content));
-      const remoteTs=content._syncTs||0;
-      const localTs=groups._syncTs||0;
-      if(forceMerge||remoteTs>localTs){
-        // 远端更新，拉取合并（简单策略：远端新就用远端）
-        if(content.groups){
-          groups=content.groups;
-          groups._syncTs=remoteTs;
-          localStorage.setItem('xz_v4',JSON.stringify(groups));
-          render();
-          if(!forceMerge) toast('已从云端同步');
-        }
+    let parsed;
+    try{ parsed=JSON.parse(atob(data.content)); }
+    catch(e){ console.error('云端数据解析失败',e); return; }
+
+    let content;
+    if(parsed && parsed._enc){
+      // 云端是加密数据
+      const pw=syncCfg.secret;
+      if(!pw){ toast('☁️ 云端数据已加密，请在同步设置填写密码'); return; }
+      try{ content=JSON.parse(await decryptObj(parsed,pw)); }
+      catch(e){ toast('🔒 密码错误，无法解密云端数据'); console.error('decrypt error',e); return; }
+    }else{
+      content=parsed; // 旧版明文，兼容读取
+    }
+
+    const remoteTs=content._syncTs||0;
+    const localTs=groups._syncTs||0;
+    if(forceMerge||remoteTs>localTs){
+      if(content.groups){
+        groups=content.groups;
+        groups._syncTs=remoteTs;
+        localStorage.setItem('xz_v4',JSON.stringify(groups));
+        render();
+        if(!forceMerge) toast('已从云端同步');
       }
-    }catch(e){ console.error('sync pull error',e); }
-  }).catch(e=>{ console.error(e); toast('同步失败：'+e.message); });
+    }
+  }catch(e){ console.error(e); toast('同步失败：'+e.message); }
 }
 function syncPush(force=false){
   if(!syncCfg||!syncCfg.token) return;
   clearTimeout(syncTimer);
-  syncTimer=setTimeout(()=>{
-    const now=Date.now();
-    groups._syncTs=now;
-    const payload=JSON.stringify({_syncTs:now,groups});
-    ghApi(syncCfg.file).then(data=>{
+  syncTimer=setTimeout(async ()=>{
+    try{
+      const now=Date.now();
+      groups._syncTs=now;
+      const plain=JSON.stringify({_syncTs:now,groups});
+      // 有密码则加密，否则明文
+      let outStr=plain;
+      if(syncCfg.secret){
+        const enc=await encryptStr(plain, syncCfg.secret);
+        outStr=JSON.stringify(enc);
+      }
+      const data=await ghApi(syncCfg.file);
       const body={
         message:`sync ${new Date(now).toLocaleString()}`,
-        content:btoa(unescape(encodeURIComponent(payload))),
+        content:btoa(unescape(encodeURIComponent(outStr))),
         branch:syncCfg.branch
       };
       if(data) body.sha=data.sha;
-      return fetch(`https://api.github.com/repos/${syncCfg.user}/${syncCfg.repo}/contents/${syncCfg.file}`,{
+      const r=await fetch(`https://api.github.com/repos/${syncCfg.user}/${syncCfg.repo}/contents/${syncCfg.file}`,{
         method:'PUT',
         headers:{'Authorization':`token ${syncCfg.token}`,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
         body:JSON.stringify(body)
       });
-    }).then(r=>{
       if(!r.ok) throw new Error('推送失败 '+r.status);
       updateSyncStatusUI();
-    }).catch(e=>{ console.error(e); });
+    }catch(e){ console.error(e); toast(syncCfg.secret?'加密同步失败：'+e.message:'同步失败：'+e.message); }
   },force?0:1500);
 }
 
