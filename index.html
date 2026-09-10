@@ -332,7 +332,7 @@
   .photo-box-row .photo-upload-zone{margin:0;cursor:pointer;}
   .box-num{
     display:inline-flex;align-items:center;justify-content:center;gap:2px;
-    width:30px;height:30px;border-radius:8px;font-size:12px;font-weight:700;
+    width:36px;height:36px;border-radius:9px;font-size:14px;font-weight:700;
     color:#333;cursor:pointer;
     transition:all .12s;position:relative;flex-shrink:0;
   }
@@ -345,16 +345,9 @@
   .bn-3{background:#b8e0c8;}
   .bn-4{background:#f0d080;}
   .bn-5{background:#f8b8d0;}
-  .box-num-del{
-    position:absolute;top:-5px;right:-5px;width:16px;height:16px;
-    border-radius:50%;background:#fff;border:1px solid var(--border);
-    color:var(--light);font-size:9px;cursor:pointer;line-height:1;
-    display:flex;align-items:center;justify-content:center;padding:0;
-  }
-  .box-num-del:hover{color:#d4a5a5;border-color:#d4a5a5;}
   .box-num-add{
     display:inline-flex;align-items:center;justify-content:center;
-    width:30px;height:30px;border-radius:8px;font-size:15px;font-weight:700;
+    width:36px;height:36px;border-radius:9px;font-size:17px;font-weight:700;
     color:#f8b4c4;background:#fff;border:2px dashed #f8d0d8;
     cursor:pointer;transition:all .12s;flex-shrink:0;
   }
@@ -460,6 +453,13 @@
   }
   .bm-copy:hover{border-color:#c8c2c6;color:var(--accent);filter:brightness(1.02);}
   .bm-copy:active{filter:brightness(.95);}
+  .bm-delbox{
+    flex:0 0 auto;padding:11px 12px;border:1px solid #f0c4c4;border-radius:10px;
+    background:#fff;color:#d98a8a;font-size:13px;font-weight:700;
+    cursor:pointer;transition:all .12s;
+  }
+  .bm-delbox:hover{background:#fdeeee;border-color:#e0a0a0;}
+  .bm-delbox:active{filter:brightness(.95);}
   .bm-fill{
     flex:1;padding:11px;border:none;border-radius:10px;
     background:#f0d080;color:#333;font-size:13px;font-weight:700;
@@ -806,6 +806,7 @@
       <div class="photo-grid-mini" id="bmPhotoGrid"></div>
     </div>
     <div class="bm-foot">
+      <button class="bm-delbox" onclick="delBoxCurrent()">🗑 删除</button>
       <button class="bm-copy" onclick="copyBox()">📋 复制</button>
       <button class="bm-fill" onclick="fillBoxToParent()">⬆ 填入母表</button>
       <button class="bm-done" onclick="closeBoxModal()">完成</button>
@@ -1093,11 +1094,10 @@ function render(){
               <input type="file" id="pfile_${gi}" accept="image/*" multiple
                 onchange="try{handleGroupFiles(${gi},this.files);}catch(e){alert('上传出错：'+e.message);}this.value=''" />
             </div>
-            <!-- Sub-box tags: numbered buttons next to photo upload -->
+            <!-- Sub-box tags: numbered buttons next to photo upload. 点击整块=打开子表，删除在弹窗内 -->
             ${g.boxes.map((b,bi)=>`
               <span class="box-num bn-${bi%6}" onclick="openBoxModal(${gi},${bi})" title="${esc(b.title)||'子表'+(bi+1)}">
                 ${bi+1}
-                <button class="box-num-del" onclick="event.stopPropagation();delBox(${gi},${bi})">✕</button>
               </span>
             `).join('')}
             <span class="box-num-add" onclick="addBox(${gi})" title="添加子表">＋</span>
@@ -1369,6 +1369,12 @@ function copyBox(){
   if(!valid.length){ toast('请先填写名称'); return; }
   const txt = valid.map(r=>`${r.name}*${n(r.qty)}`).join('\n');
   doCopy(txt);
+}
+function delBoxCurrent(){
+  if(_boxModalGI===null||_boxModalBI===null) return;
+  const gi=_boxModalGI, bi=_boxModalBI;
+  closeBoxModal();      // 先关弹窗，再弹删除确认（复用 delBox 的联动清理）
+  delBox(gi,bi);
 }
 
 /* ====== Fill box to parent table (with linkage) ====== */
