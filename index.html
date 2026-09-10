@@ -183,6 +183,12 @@
   .inp-name{width:100%;min-width:0;font-size:15px;font-weight:600;}
   .inp-num{width:100%;text-align:center;font-size:16px;font-weight:600;}
   .inp-price{width:100%;text-align:center;font-size:16px;font-weight:600;}
+  /* 去掉数字输入框的上下微调按钮（桌面浏览器） */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button{
+    -webkit-appearance:none;margin:0;
+  }
+  input[type=number]{ -moz-appearance:textfield; appearance:textfield; }
   .sep{color:var(--soft);font-size:12px;flex-shrink:0;user-select:none;margin:0 -1px;}
   .eq{color:var(--soft);font-size:12px;flex-shrink:0;}
   .total{font-size:16px;font-weight:700;color:var(--text);text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums;}
@@ -603,6 +609,15 @@
     .btn{padding:6px 10px;font-size:11px;}
     .search-input{font-size:13px;}
     .ftab{padding:5px 10px;font-size:11px;}
+  }
+
+  /* 桌面/宽屏：加宽数量、单价、金额列，避免数字被挤 */
+  @media(min-width:481px){
+    .row,.row-head{
+      grid-template-columns:20px 1fr 8px 64px 8px 84px 8px 76px 8px 28px;
+      gap:6px;
+    }
+    .inp-num,.inp-price{font-size:16px;}
   }
 
   /* Sync settings */
