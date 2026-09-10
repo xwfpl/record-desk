@@ -8,7 +8,11 @@
 <meta http-equiv="Expires" content="0">
 <title>暖记 · 台</title>
 <style>
-  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;
+    -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;}
+  input,textarea,[contenteditable="true"]{
+    -webkit-touch-callout:default;-webkit-user-select:text;user-select:text;}
   html{background:#f2f0ed !important;min-height:100%;}
   :root{
     --bg:#f5f4f2; --card:#fff; --text:#2c2a28; --soft:#9a9498; --light:#b8b2b8;
@@ -108,10 +112,12 @@
   }
   .grp-spacer{flex:0 0 6px;}
   .grp-date{
-    font-size:11px;color:var(--gdeep,var(--c1-deep));font-weight:700;flex-shrink:0;
+    font-size:14px;color:var(--gdeep,var(--c1-deep));font-weight:700;flex-shrink:0;
     background:transparent;border:none;outline:none;font-family:var(--font);
-    width:70px;padding:2px 3px;text-align:right;cursor:pointer;
+    width:82px;padding:2px 4px;text-align:right;cursor:pointer;
     transition:all .2s;margin-right:2px;
+    -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;touch-action:manipulation;
   }
   .grp-date:hover{opacity:.7;}
   .grp-sum-mini{
@@ -581,7 +587,7 @@
       grid-template-columns:12px 1fr 4px 28px 4px 36px 4px 38px 4px 20px;
       gap:3px;padding-left:6px;padding-right:6px;
     }
-    .grp-date{width:62px;font-size:10px;padding:2px 3px;}
+    .grp-date{width:86px;font-size:13px;}
     .brand-name{font-size:14px;}
     .header-actions{gap:4px;}
     .btn{padding:6px 10px;font-size:11px;}
@@ -1021,7 +1027,9 @@ function render(){
           ondblclick="event.stopPropagation();unlockTitle(this,${gi})"
           oninput="updGroup(${gi},'title',this.value)" />
         <input class="grp-date" type="text" value="${esc(g.date)}" placeholder="日期" readonly
-          onclick="event.stopPropagation();openDatePicker(${gi})" />
+          oncontextmenu="event.preventDefault();"
+          ontouchstart="longPressStart(event,${gi})" ontouchend="longPressEnd()" ontouchmove="longPressEnd()"
+          onmousedown="longPressStart(event,${gi})" onmouseup="longPressEnd()" onmouseleave="longPressEnd()" />
         <span class="grp-sum-mini">${grpTotal(g)}</span>
         <span class="grp-status-txt">${['未出货','已出货','已结算','已入账'][g.status]}</span>
       </div>
@@ -1110,6 +1118,12 @@ function render(){
     if(head){
       let clickTimer=null;
       head.addEventListener('click',(e)=>{
+        // 日期区域：轻点=折叠（默认）；长按已弹日期框则不折叠
+        if(e.target.classList && e.target.classList.contains('grp-date')){
+          if(_lpFired){ _lpFired = false; return; }
+          toggleGroup(gi);
+          return;
+        }
         // If clicking on title input, handle specially
         if(e.target.classList && e.target.classList.contains('grp-title')){
           if(clickTimer){
@@ -1650,6 +1664,35 @@ function unlockTitle(el,gi){
   el.addEventListener('click',stopProp);
 }
 
+/* ====== 长按日期触发修改 ====== */
+let _lpTimer = null;
+let _lpFired = false;
+const LP_DURATION = 500; // 长按 500ms 触发
+
+function longPressStart(e, gi){
+  longPressEnd(); // 先清掉上一个
+  _lpFired = false;
+  const target = e.currentTarget || e.target;
+  _lpTimer = setTimeout(()=>{
+    _lpFired = true;
+    if(navigator.vibrate) navigator.vibrate(15);
+    openDatePicker(gi);
+  }, LP_DURATION);
+  // 仅在长按已触发时阻止 touchend 后续合成的 click（避免误折叠）；轻点则放行 click 走折叠
+  if(e.type === 'touchstart'){
+    const onEnd = (ev)=>{
+      target.removeEventListener('touchend', onEnd);
+      target.removeEventListener('touchcancel', onEnd);
+      if(_lpFired){ ev.preventDefault(); }
+    };
+    target.addEventListener('touchend', onEnd, {passive:false});
+    target.addEventListener('touchcancel', onEnd, {passive:false});
+  }
+}
+function longPressEnd(){
+  if(_lpTimer){ clearTimeout(_lpTimer); _lpTimer = null; }
+}
+
 /* ====== Date Picker ====== */
 let dpGi = null;
 let dpY=2026, dpM=9, dpD=8;
@@ -1967,6 +2010,16 @@ document.addEventListener('click',(e)=>{
     });
   }
 });
+
+// 全局禁用长按/右键菜单，但放行输入框（方便粘贴）
+document.addEventListener('contextmenu',(e)=>{
+  const t = e.target;
+  const tag = t && t.tagName;
+  if(tag==='INPUT' || tag==='TEXTAREA' || (t && t.isContentEditable)) return;
+  e.preventDefault();
+}, {passive:false});
+// 禁止双击/长按选中文字放大（输入框除外，已由 CSS 处理）
+document.addEventListener('gesturestart',(e)=>e.preventDefault());
 
 load();render();loadSyncCfg();syncPull();
 // 每隔一段时间自动拉取一次
