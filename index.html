@@ -1006,6 +1006,34 @@ function ghApi(path,opts={}){
   });
 }
 
+/* 大文件(>1MB)下载：优先用 git_url（带认证头），避免 download_url 403 */
+async function ghDownloadLarge(data){
+  // 方案1：Git Blobs API（带认证头，返回 base64 完整内容）
+  const gitUrl=data.git_url||data._links?.git;
+  if(gitUrl){
+    const r=await fetch(gitUrl,{
+      headers:{'Authorization':`token ${syncCfg.token}`,'Accept':'application/vnd.github.v3+json'}
+    });
+    if(r.ok){
+      const blob=await r.json();
+      if(blob.content){
+        // base64 解码
+        const binary=atob(blob.content.replace(/\n/g,''));
+        return binary;
+      }
+    }
+  }
+  // 方案2：raw URL 带认证头
+  const rawUrl=data.download_url||(data._links?.self?data._links.self.replace('https://api.github.com/repos','https://raw.githubusercontent.com').replace('/contents',''):'');
+  if(rawUrl){
+    const r=await fetch(rawUrl,{
+      headers:{'Authorization':`token ${syncCfg.token}`}
+    });
+    if(r.ok) return await r.text();
+  }
+  throw new Error('无法下载大文件');
+}
+
 /* ====== 端到端加密（AES-GCM + PBKDF2，密码不落云端）====== */
 function _u8ToB64(bytes){
   let bin=''; const arr=new Uint8Array(bytes);
@@ -1047,13 +1075,12 @@ async function syncPull(forceMerge=false){
       return syncPush(true);
     }
     let parsed;
-    // 大文件(>1MB) GitHub API 会截断 content，需要用 download_url 下载
-    if(data.size && data.size>1048576 && data.download_url){
-      const rawResp=await fetch(data.download_url);
-      if(!rawResp.ok){ console.error('大文件下载失败',rawResp.status); return; }
-      const rawText=await rawResp.text();
-      try{ parsed=JSON.parse(rawText); }
-      catch(e){ console.error('云端数据解析失败',e); return; }
+    // 大文件(>1MB) GitHub API 会截断 content，需要用 git_url 下载
+    if(data.size && data.size>1048576){
+      try{
+        const rawText=await ghDownloadLarge(data);
+        parsed=JSON.parse(rawText);
+      }catch(e){ console.error('大文件下载失败',e); toast('下载失败：'+e.message); return; }
     }else{
       try{ parsed=JSON.parse(atob(data.content)); }
       catch(e){ console.error('云端数据解析失败',e); return; }
@@ -1165,11 +1192,10 @@ async function restoreVersion(sha){
       if(!r.ok) throw new Error('获取版本内容失败 '+r.status);
       const data=await r.json();
       let parsed;
-      // 大文件用 download_url，小文件用 content
-      if(data.size && data.size>1048576 && data.download_url){
-        const rawResp=await fetch(data.download_url);
-        if(!rawResp.ok) throw new Error('大文件下载失败 '+rawResp.status);
-        parsed=JSON.parse(await rawResp.text());
+      // 大文件用 git_url 下载（带认证头），小文件用 content
+      if(data.size && data.size>1048576){
+        const rawText=await ghDownloadLarge(data);
+        parsed=JSON.parse(rawText);
       }else{
         parsed=JSON.parse(atob(data.content));
       }
