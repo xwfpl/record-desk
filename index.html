@@ -1217,68 +1217,72 @@ async function loadVersionList(){
   }
 }
 async function restoreVersion(commitSha){
-  showConfirm('确认恢复此版本？','当前本地数据将被覆盖','🕘',async()=>{
+  // 不用 showConfirm，直接恢复（用户已经点了"恢复"按钮）
+  try{
+    // 直接用 jsdelivr CDN 下载，带超时
+    const jsUrl=`https://cdn.jsdelivr.net/gh/${syncCfg.user}/${syncCfg.repo}@${commitSha}/${syncCfg.file}`;
+    console.log('开始下载:', jsUrl);
+    toastPersist('⏳ 正在下载版本数据…');
+    
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(), 60000);
+    
+    let rawText;
     try{
-      // 直接用 jsdelivr CDN 下载文件，跳过 GitHub API（减少一次请求，避免卡住）
-      toastPersist('⏳ 正在下载版本数据…');
-      const jsUrl=`https://cdn.jsdelivr.net/gh/${syncCfg.user}/${syncCfg.repo}@${commitSha}/${syncCfg.file}`;
-      let rawText;
+      const r=await fetch(jsUrl, {signal:ctrl.signal});
+      clearTimeout(timer);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      rawText=await r.text();
+      console.log('下载完成, 长度:', rawText.length);
+    }catch(e1){
+      clearTimeout(timer);
+      console.warn('jsdelivr 失败，尝试 raw URL:', e1.message);
+      toastPersist('⏳ CDN 不通，尝试备用线路…');
+      const rawUrl=`https://raw.githubusercontent.com/${syncCfg.user}/${syncCfg.repo}/${commitSha}/${syncCfg.file}`;
+      const ctrl2=new AbortController();
+      const timer2=setTimeout(()=>ctrl2.abort(), 60000);
       try{
-        rawText=await downloadFile(jsUrl, {}, 45000, (loaded,total)=>{
-          if(total>0){
-            const pct=Math.round(loaded/total*100);
-            const mb=Math.round(total/1024/1024*10)/10;
-            toastPersist(`⏳ 下载中 ${pct}% (${mb}MB)`);
-          }
-        });
-      }catch(e1){
-        console.warn('jsdelivr 失败，尝试 raw URL:',e1.message);
-        toastPersist('⏳ CDN 失败，尝试备用线路…');
-        // 备用：raw URL
-        const rawUrl=`https://raw.githubusercontent.com/${syncCfg.user}/${syncCfg.repo}/${commitSha}/${syncCfg.file}`;
-        try{
-          rawText=await downloadFile(rawUrl, {}, 45000, (loaded,total)=>{
-            if(total>0){
-              const pct=Math.round(loaded/total*100);
-              toastPersist(`⏳ 下载中 ${pct}%`);
-            }
-          });
-        }catch(e2){
-          console.warn('raw URL 也失败:',e2.message);
-          throw new Error('下载失败：'+e2.message);
-        }
+        const r2=await fetch(rawUrl, {signal:ctrl2.signal});
+        clearTimeout(timer2);
+        if(!r2.ok) throw new Error('HTTP '+r2.status);
+        rawText=await r2.text();
+        console.log('备用下载完成, 长度:', rawText.length);
+      }catch(e2){
+        clearTimeout(timer2);
+        throw e2;
       }
-      
-      toastPersist('⏳ 正在解析数据…');
-      const parsed=JSON.parse(rawText);
-      
-      // 解密
-      let content;
-      if(parsed && parsed._enc){
-        const pw=syncCfg.secret;
-        if(!pw){ toast('🔒 该版本已加密，请先在同步设置填写密码'); return; }
-        toastPersist('⏳ 正在解密数据…');
-        try{ content=JSON.parse(await decryptObj(parsed,pw)); }
-        catch(e){ console.error('decrypt error',e); toast('🔒 密码错误，无法解密'); return; }
-      }else{
-        content=parsed;
-      }
-      if(content && content.groups){
-        toastPersist('⏳ 正在恢复数据…');
-        groups=content.groups;
-        groups._syncTs=content._syncTs||0;
-        localStorage.setItem('xz_v4',JSON.stringify(groups));
-        render();
-        closeVersionModal();
-        toast('✅ 已恢复到历史版本',4000);
-      }else{
-        toast('该版本数据格式异常');
-      }
-    }catch(e){
-      console.error('restoreVersion error',e);
-      toast('❌ 恢复失败：'+e.message,5000);
     }
-  }, '恢复');
+    
+    toastPersist('⏳ 正在解析数据…');
+    const parsed=JSON.parse(rawText);
+    
+    // 解密
+    let content;
+    if(parsed && parsed._enc){
+      const pw=syncCfg.secret;
+      if(!pw){ toast('🔒 该版本已加密，请先在同步设置填写密码',4000); return; }
+      toastPersist('⏳ 正在解密数据…');
+      try{ content=JSON.parse(await decryptObj(parsed,pw)); }
+      catch(e){ console.error('decrypt error',e); toast('🔒 密码错误，无法解密',4000); return; }
+    }else{
+      content=parsed;
+    }
+    
+    if(content && content.groups){
+      toastPersist('⏳ 正在写入本地…');
+      groups=content.groups;
+      groups._syncTs=content._syncTs||0;
+      localStorage.setItem('xz_v4',JSON.stringify(groups));
+      render();
+      closeVersionModal();
+      toast('✅ 已恢复到历史版本',4000);
+    }else{
+      toast('该版本数据格式异常',4000);
+    }
+  }catch(e){
+    console.error('restoreVersion error',e);
+    toast('❌ 恢复失败：'+e.message,5000);
+  }
 }
 function newGroup(){
   return {id:Date.now()+Math.random(), title:'', date:today(), rows:[newRow()], photos:[], collapsed:true, boxes:[], status:0};
