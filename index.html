@@ -1003,8 +1003,20 @@ async function syncPull(forceMerge=false){
       return syncPush(true);
     }
     let parsed;
-    try{ parsed=JSON.parse(atob(data.content)); }
-    catch(e){ console.error('云端数据解析失败',e); return; }
+    if(data.content && data.encoding==='base64'){
+      // 小文件：Contents API 直接返回 base64 内容
+      try{ parsed=JSON.parse(atob(data.content)); }
+      catch(e){ console.error('云端数据解析失败',e); return; }
+    }else{
+      // 大文件（>1MB）：Contents API 不返回内容，改用 raw URL 下载
+      try{
+        const rawUrl=data.download_url||`https://raw.githubusercontent.com/${syncCfg.user}/${syncCfg.repo}/${data.sha?data.sha:syncCfg.branch}/${syncCfg.file}`;
+        const rawResp=await fetch(rawUrl);
+        if(!rawResp.ok){ console.error('raw下载失败',rawResp.status); return; }
+        const rawText=await rawResp.text();
+        parsed=JSON.parse(rawText);
+      }catch(e){ console.error('大文件下载解析失败',e); return; }
+    }
 
     let content;
     if(parsed && parsed._enc){
