@@ -1109,10 +1109,15 @@ async function syncPull(forceMerge=false){
       return syncPush(true);
     }
     let parsed;
-    // 大文件(>1MB) GitHub API 会截断 content，需要用 git_url 下载
+    // 大文件(>1MB) GitHub API 会截断 content，需要用 CDN 下载
     if(data.size && data.size>1048576){
       try{
-        const rawText=await ghDownloadLarge(data);
+        const rawUrl=`https://cdn.jsdelivr.net/gh/${syncCfg.user}/${syncCfg.repo}@main/${syncCfg.file}`;
+        const ctrl=new AbortController();
+        const timer=setTimeout(()=>ctrl.abort(), 60000);
+        const r=await fetch(rawUrl, {signal:ctrl.signal, cache:'no-store'});
+        const rawText=await r.text();
+        clearTimeout(timer);
         parsed=JSON.parse(rawText);
       }catch(e){ console.error('大文件下载失败',e); toast('下载失败：'+e.message); return; }
     }else{
@@ -1189,9 +1194,13 @@ async function loadVersionList(){
   const listEl=document.getElementById('verList');
   listEl.innerHTML='<div class="ver-loading">加载中…</div>';
   try{
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(), 15000);
     const r=await fetch(`https://api.github.com/repos/${syncCfg.user}/${syncCfg.repo}/commits?path=${syncCfg.file}&per_page=30`,{
-      headers:{'Authorization':`token ${syncCfg.token}`,'Accept':'application/vnd.github.v3+json'}
+      headers:{'Authorization':`token ${syncCfg.token}`,'Accept':'application/vnd.github.v3+json'},
+      signal:ctrl.signal, cache:'no-store'
     });
+    clearTimeout(timer);
     if(!r.ok) throw new Error('获取版本列表失败 '+r.status);
     const commits=await r.json();
     if(!commits.length){
@@ -1217,40 +1226,37 @@ async function loadVersionList(){
   }
 }
 async function restoreVersion(commitSha){
-  // 不用 showConfirm，直接恢复（用户已经点了"恢复"按钮）
   try{
-    // 直接用 jsdelivr CDN 下载，带超时
     const jsUrl=`https://cdn.jsdelivr.net/gh/${syncCfg.user}/${syncCfg.repo}@${commitSha}/${syncCfg.file}`;
     console.log('开始下载:', jsUrl);
     toastPersist('⏳ 正在下载版本数据…');
     
-    const ctrl=new AbortController();
-    const timer=setTimeout(()=>ctrl.abort(), 60000);
-    
     let rawText;
+    // 下载函数：fetch + text 整体超时，signal 贯穿全程
+    const downloadWithTimeout=async(url,timeoutMs)=>{
+      const ctrl=new AbortController();
+      const timer=setTimeout(()=>ctrl.abort(), timeoutMs);
+      try{
+        const r=await fetch(url, {signal:ctrl.signal, cache:'no-store'});
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        const text=await r.text(); // signal 仍然活跃，超时能中断
+        clearTimeout(timer);
+        return text;
+      }catch(e){
+        clearTimeout(timer);
+        throw e;
+      }
+    };
+    
     try{
-      const r=await fetch(jsUrl, {signal:ctrl.signal});
-      clearTimeout(timer);
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      rawText=await r.text();
+      rawText=await downloadWithTimeout(jsUrl, 60000);
       console.log('下载完成, 长度:', rawText.length);
     }catch(e1){
-      clearTimeout(timer);
       console.warn('jsdelivr 失败，尝试 raw URL:', e1.message);
       toastPersist('⏳ CDN 不通，尝试备用线路…');
       const rawUrl=`https://raw.githubusercontent.com/${syncCfg.user}/${syncCfg.repo}/${commitSha}/${syncCfg.file}`;
-      const ctrl2=new AbortController();
-      const timer2=setTimeout(()=>ctrl2.abort(), 60000);
-      try{
-        const r2=await fetch(rawUrl, {signal:ctrl2.signal});
-        clearTimeout(timer2);
-        if(!r2.ok) throw new Error('HTTP '+r2.status);
-        rawText=await r2.text();
-        console.log('备用下载完成, 长度:', rawText.length);
-      }catch(e2){
-        clearTimeout(timer2);
-        throw e2;
-      }
+      rawText=await downloadWithTimeout(rawUrl, 60000);
+      console.log('备用下载完成, 长度:', rawText.length);
     }
     
     toastPersist('⏳ 正在解析数据…');
