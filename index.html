@@ -948,13 +948,12 @@ function load(){
   });
 }
 function save(){ sortGroupsByDate(); localStorage.setItem('xz_v4',JSON.stringify(groups)); }
-/* 手动同步：先拉取合并再推送 */
+/* 手动同步：只推送本地数据到云端，不拉取覆盖（避免丢失本地数据）*/
 async function manualSync(){
   if(!syncCfg||!syncCfg.token){ openSyncSettings(); return; }
-  toast('正在同步…');
-  await syncPull(true);
+  toast('正在上传…');
   syncPush(true);
-  toast('✅ 同步完成');
+  toast('✅ 已上传到云端');
 }
 
 /* ===== GitHub Sync ===== */
