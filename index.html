@@ -433,14 +433,15 @@
     background:transparent;font-family:var(--font);color:var(--text);
     padding:3px 2px;transition:all .15s;
   }
-  .bm-name{flex:1;min-width:60px;font-size:15px;font-weight:600;}
-  .bm-qty{width:50px;text-align:center;font-size:15px;font-weight:600;}
+  .bm-name{flex:none;width:100%;min-width:0;font-size:15px;font-weight:600;}
+  .bm-qty{flex:0 0 46px;width:46px;min-width:0;text-align:center;font-size:15px;font-weight:600;}
+  .bm-row .ns-wrap{flex:1 1 auto;width:auto;min-width:0;}
   .bm-inp:focus{border-bottom:1.5px solid #f8b4c4;background:#fef0f3;}
-  .bm-x{color:var(--light);font-size:13px;}
-  .bm-sep{color:var(--soft);font-size:13px;font-weight:600;}
+  .bm-x{color:var(--light);font-size:13px;flex-shrink:0;}
+  .bm-sep{color:var(--soft);font-size:13px;font-weight:600;flex-shrink:0;}
   .bm-del{
     background:none;border:none;color:var(--light);font-size:13px;
-    cursor:pointer;padding:2px 4px;
+    cursor:pointer;padding:2px 4px;flex-shrink:0;
   }
   .bm-del:hover{color:var(--pink-deep);}
   .bm-add{
@@ -641,6 +642,24 @@
   .sync-hint p{margin:2px 0;}
   #syncStatus{font-size:11px;font-weight:600;}
 
+  /* Version Recovery Modal */
+  .ver-box{width:90%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;}
+  .ver-list{flex:1;overflow-y:auto;margin:12px 0;text-align:left;-webkit-overflow-scrolling:touch;}
+  .ver-item{
+    display:flex;align-items:center;gap:10px;padding:12px 14px;
+    border:1px solid var(--border);border-radius:10px;margin-bottom:8px;
+    cursor:pointer;transition:all .15s;background:#fff;
+  }
+  .ver-item:hover{border-color:var(--accent);background:var(--accent-soft);}
+  .ver-item:active{transform:scale(.98);}
+  .ver-icon{font-size:18px;flex-shrink:0;}
+  .ver-info{flex:1;min-width:0;}
+  .ver-date{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px;}
+  .ver-msg{font-size:11px;color:var(--soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ver-restore{font-size:12px;font-weight:600;color:var(--accent);flex-shrink:0;}
+  .ver-empty{text-align:center;padding:30px 20px;color:var(--soft);font-size:13px;}
+  .ver-loading{text-align:center;padding:30px 20px;color:var(--soft);font-size:13px;}
+
   /* Search & Filter Bar */
   .search-bar{
     margin-bottom:14px;
@@ -726,6 +745,8 @@
       <span class="brand-name">暖记 · 台</span>
     </div>
     <div class="header-actions">
+      <button class="btn btn-ghost" onclick="manualSync()" title="手动同步">⬆️ 同步</button>
+      <button class="btn btn-ghost" onclick="openVersionModal()" title="恢复版本">🕘 版本</button>
       <button class="btn btn-ghost" onclick="openSyncSettings()" title="同步设置">☁️ <span id="syncStatus">未连接</span></button>
       <button class="btn btn-ghost" onclick="clearAll()">🗑 清空</button>
     </div>
@@ -798,6 +819,21 @@
       <p>💡 Token 和密码都只存在你本地浏览器，不会上传到任何地方</p>
       <p>🔒 填写密码后，云端 data.json 会加密成乱码，别人即使看到仓库也读不到内容</p>
       <p>⚠️ 加密密码请务必牢记，忘记后云端数据无法解密恢复</p>
+    </div>
+  </div>
+</div>
+
+<!-- Version Recovery Modal -->
+<div class="cfm-bg" id="verBg" onclick="if(event.target===this)closeVersionModal()">
+  <div class="cfm-box ver-box">
+    <div class="cfm-icon">🕘</div>
+    <div class="cfm-title">恢复历史版本</div>
+    <div class="cfm-sub">从云端同步记录中选择一个版本恢复</div>
+    <div class="ver-list" id="verList">
+      <div class="ver-loading">加载中…</div>
+    </div>
+    <div class="cfm-btns">
+      <button class="cfm-btn cfm-cancel" onclick="closeVersionModal()">关闭</button>
     </div>
   </div>
 </div>
@@ -911,7 +947,15 @@ function load(){
     });
   });
 }
-function save(){ sortGroupsByDate(); localStorage.setItem('xz_v4',JSON.stringify(groups)); syncPush(); }
+function save(){ sortGroupsByDate(); localStorage.setItem('xz_v4',JSON.stringify(groups)); }
+/* 手动同步：先拉取合并再推送 */
+async function manualSync(){
+  if(!syncCfg||!syncCfg.token){ openSyncSettings(); return; }
+  toast('正在同步…');
+  await syncPull(true);
+  syncPush(true);
+  toast('✅ 同步完成');
+}
 
 /* ===== GitHub Sync ===== */
 let syncTimer=null;
@@ -994,86 +1038,52 @@ async function decryptObj(obj, pw){
   const pt=await crypto.subtle.decrypt({name:'AES-GCM', iv:_b64ToU8(obj.iv)}, key, _b64ToU8(obj.ct));
   return new TextDecoder().decode(pt);
 }
-function _diag(msg){
-  const el=document.getElementById('_diag_panel');
-  if(!el) return;
-  const line=document.createElement('div');
-  line.style.cssText='padding:4px 8px;border-bottom:1px solid #333;font-size:13px;word-break:break-all;';
-  const t=new Date(); const ts=String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0')+':'+String(t.getSeconds()).padStart(2,'0');
-  line.textContent='['+ts+'] '+msg;
-  el.appendChild(line);
-  console.log('[DIAG] '+msg);
-}
 async function syncPull(forceMerge=false){
-  _diag('syncPull开始 force='+forceMerge);
-  if(!syncCfg){ _diag('❌ syncCfg为空，退出'); return; }
-  if(!syncCfg.token){ _diag('❌ token为空，退出'); return; }
-  _diag('配置: user='+syncCfg.user+' repo='+syncCfg.repo+' branch='+syncCfg.branch+' file='+syncCfg.file+' secret='+(syncCfg.secret?('有('+(syncCfg.secret.length)+'字)'):'无'));
+  if(!syncCfg||!syncCfg.token) return;
   try{
-    _diag('正在调用ghApi获取文件信息...');
     const data=await ghApi(syncCfg.file);
     if(!data){
-      _diag('❌ 云端文件不存在，触发syncPush');
+      // 文件不存在，把当前数据推上去
       return syncPush(true);
     }
-    _diag('ghApi返回: size='+data.size+' encoding='+(data.encoding||'无')+' content长度='+(data.content?data.content.length:0)+' download_url='+(data.download_url?'有':'无'));
     let parsed;
-    if(data.content && data.encoding==='base64' && (!data.size || data.size<=1048576)){
-      _diag('走base64分支（小文件）');
-      try{ parsed=JSON.parse(atob(data.content)); _diag('base64解析成功'); }
-      catch(e){ _diag('❌ base64解析失败: '+e.message); console.error('云端数据解析失败',e); return; }
+    // 大文件(>1MB) GitHub API 会截断 content，需要用 download_url 下载
+    if(data.size && data.size>1048576 && data.download_url){
+      const rawResp=await fetch(data.download_url);
+      if(!rawResp.ok){ console.error('大文件下载失败',rawResp.status); return; }
+      const rawText=await rawResp.text();
+      try{ parsed=JSON.parse(rawText); }
+      catch(e){ console.error('云端数据解析失败',e); return; }
     }else{
-      _diag('走raw URL分支（大文件>1MB）');
-      try{
-        const rawUrl=data.download_url||`https://raw.githubusercontent.com/${syncCfg.user}/${syncCfg.repo}/${data.sha?data.sha:syncCfg.branch}/${syncCfg.file}`;
-        _diag('raw URL: '+rawUrl.substring(0,80)+'...');
-        const rawResp=await fetch(rawUrl);
-        _diag('raw响应: status='+rawResp.status+' ok='+rawResp.ok);
-        if(!rawResp.ok){ _diag('❌ raw下载失败 status='+rawResp.status); console.error('raw下载失败',rawResp.status); return; }
-        const rawText=await rawResp.text();
-        _diag('raw下载: '+rawText.length+' 字节, 开头='+rawText.substring(0,40));
-        parsed=JSON.parse(rawText);
-        _diag('raw JSON解析成功, _enc='+(parsed._enc?'是':'否'));
-      }catch(e){ _diag('❌ 大文件下载解析失败: '+e.message); console.error('大文件下载解析失败',e); return; }
+      try{ parsed=JSON.parse(atob(data.content)); }
+      catch(e){ console.error('云端数据解析失败',e); return; }
     }
 
     let content;
     if(parsed && parsed._enc){
-      _diag('云端数据已加密');
+      // 云端是加密数据
       const pw=syncCfg.secret;
-      if(!pw){ _diag('❌ 无密码，无法解密'); toast('☁️ 云端数据已加密，请在同步设置填写密码'); return; }
-      _diag('正在解密...');
-      try{ content=JSON.parse(await decryptObj(parsed,pw)); _diag('解密成功'); }
-      catch(e){ _diag('❌ 解密失败: '+e.message); toast('🔒 密码错误，无法解密云端数据'); console.error('decrypt error',e); return; }
+      if(!pw){ toast('☁️ 云端数据已加密，请在同步设置填写密码'); return; }
+      try{ content=JSON.parse(await decryptObj(parsed,pw)); }
+      catch(e){ toast('🔒 密码错误，无法解密云端数据'); console.error('decrypt error',e); return; }
     }else{
-      _diag('云端数据为明文');
-      content=parsed;
+      content=parsed; // 旧版明文，兼容读取
     }
 
     const remoteTs=content._syncTs||0;
     const localTs=groups._syncTs||0;
-    _diag('时间戳: 远程='+remoteTs+' 本地='+localTs+' force='+forceMerge);
     if(forceMerge||remoteTs>localTs){
-      _diag('条件满足，准备覆盖本地');
       if(content.groups){
-        _diag('content.groups长度='+content.groups.length);
         groups=content.groups;
         groups._syncTs=remoteTs;
         localStorage.setItem('xz_v4',JSON.stringify(groups));
-        _diag('已写入localStorage, 大小='+localStorage.getItem('xz_v4').length);
         render();
-        _diag('已调用render()');
         if(!forceMerge) toast('已从云端同步');
-      }else{
-        _diag('❌ content.groups不存在');
       }
-    }else{
-      _diag('条件不满足，不覆盖本地');
     }
-    _diag('syncPull完成');
-  }catch(e){ _diag('❌ syncPull异常: '+e.message); console.error(e); toast('同步失败：'+e.message); }
+  }catch(e){ console.error(e); toast('同步失败：'+e.message); }
 }
-function syncPush(force=false){ if(window._restoreMode) return; // RESTORE MODE: pause push
+function syncPush(force=false){
   if(!syncCfg||!syncCfg.token) return;
   clearTimeout(syncTimer);
   syncTimer=setTimeout(async ()=>{
@@ -1105,6 +1115,90 @@ function syncPush(force=false){ if(window._restoreMode) return; // RESTORE MODE:
   },force?0:1500);
 }
 
+/* ====== 版本恢复 ====== */
+function openVersionModal(){
+  if(!syncCfg||!syncCfg.token){ toast('请先连接 GitHub 同步'); openSyncSettings(); return; }
+  document.getElementById('verBg').classList.add('show');
+  loadVersionList();
+}
+function closeVersionModal(){
+  document.getElementById('verBg').classList.remove('show');
+}
+async function loadVersionList(){
+  const listEl=document.getElementById('verList');
+  listEl.innerHTML='<div class="ver-loading">加载中…</div>';
+  try{
+    const r=await fetch(`https://api.github.com/repos/${syncCfg.user}/${syncCfg.repo}/commits?path=${syncCfg.file}&per_page=30`,{
+      headers:{'Authorization':`token ${syncCfg.token}`,'Accept':'application/vnd.github.v3+json'}
+    });
+    if(!r.ok) throw new Error('获取版本列表失败 '+r.status);
+    const commits=await r.json();
+    if(!commits.length){
+      listEl.innerHTML='<div class="ver-empty">暂无同步记录</div>';
+      return;
+    }
+    listEl.innerHTML=commits.map(c=>{
+      const date=c.commit.author.date?new Date(c.commit.author.date).toLocaleString('zh-CN'):'未知时间';
+      const msg=c.commit.message||'无信息';
+      const sha=c.sha;
+      return `<div class="ver-item" onclick="restoreVersion('${sha}')">
+        <div class="ver-icon">📦</div>
+        <div class="ver-info">
+          <div class="ver-date">${date}</div>
+          <div class="ver-msg">${msg}</div>
+        </div>
+        <div class="ver-restore">恢复</div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    console.error(e);
+    listEl.innerHTML=`<div class="ver-empty">加载失败：${e.message}</div>`;
+  }
+}
+async function restoreVersion(sha){
+  showConfirm('确认恢复此版本？','当前本地数据将被覆盖','🕘',async()=>{
+    try{
+      toast('正在下载历史版本…');
+      const r=await fetch(`https://api.github.com/repos/${syncCfg.user}/${syncCfg.repo}/contents/${syncCfg.file}?ref=${sha}`,{
+        headers:{'Authorization':`token ${syncCfg.token}`,'Accept':'application/vnd.github.v3+json'}
+      });
+      if(!r.ok) throw new Error('获取版本内容失败 '+r.status);
+      const data=await r.json();
+      let parsed;
+      // 大文件用 download_url，小文件用 content
+      if(data.size && data.size>1048576 && data.download_url){
+        const rawResp=await fetch(data.download_url);
+        if(!rawResp.ok) throw new Error('大文件下载失败 '+rawResp.status);
+        parsed=JSON.parse(await rawResp.text());
+      }else{
+        parsed=JSON.parse(atob(data.content));
+      }
+      // 解密
+      let content;
+      if(parsed && parsed._enc){
+        const pw=syncCfg.secret;
+        if(!pw){ toast('🔒 该版本已加密，请先在同步设置填写密码'); return; }
+        try{ content=JSON.parse(await decryptObj(parsed,pw)); }
+        catch(e){ toast('🔒 密码错误，无法解密'); return; }
+      }else{
+        content=parsed;
+      }
+      if(content && content.groups){
+        groups=content.groups;
+        groups._syncTs=content._syncTs||0;
+        localStorage.setItem('xz_v4',JSON.stringify(groups));
+        render();
+        closeVersionModal();
+        toast('✅ 已恢复到历史版本');
+      }else{
+        toast('该版本数据格式异常');
+      }
+    }catch(e){
+      console.error(e);
+      toast('恢复失败：'+e.message);
+    }
+  });
+}
 function newGroup(){
   return {id:Date.now()+Math.random(), title:'', date:today(), rows:[newRow()], photos:[], collapsed:true, boxes:[], status:0};
 }
@@ -1759,10 +1853,9 @@ function updateNsHighlight(dd){
   if(active) active.scrollIntoView({block:'nearest'});
 }
 
-function renderBoxModalList(gi,bi){
-  const b = groups[gi].boxes[bi];
-  const list = document.getElementById('boxModalList');
-  list.innerHTML = b.rows.map((r,ri)=>`
+let _bmComposing=false; // 中文输入法组词中：暂停自动续行，避免打断输入
+function boxRowHTML(gi,bi,ri,r){
+  return `
     <div class="bm-row">
       <span class="bm-num">${ri+1}</span>
       <div class="ns-wrap">
@@ -1770,6 +1863,7 @@ function renderBoxModalList(gi,bi){
           oninput="updBoxRowModal(${gi},${bi},${ri},'name',this.value);showNameSuggest(this,'box',${gi},${bi},${ri})"
           onfocus="showNameSuggest(this,'box',${gi},${bi},${ri})"
           onkeydown="boxRowEnter(event,${gi},${bi},'name')"
+          oncompositionstart="_bmComposing=true" oncompositionend="_bmComposing=false"
           onblur="hideNameSuggest(this)" autocomplete="off" />
         <div class="ns-dropdown"></div>
       </div>
@@ -1779,17 +1873,32 @@ function renderBoxModalList(gi,bi){
         onkeydown="boxRowEnter(event,${gi},${bi},'qty')" />
       <span class="bm-sep">|</span>
       <button class="bm-del" onclick="delBoxRow(${gi},${bi},${ri})">✕</button>
-    </div>
-  `).join('') + `<div class="bm-add" onclick="addBoxRow(${gi},${bi})">＋ 添加一行</div>`;
+    </div>`;
+}
+function renderBoxModalList(gi,bi){
+  const b = groups[gi].boxes[bi];
+  const list = document.getElementById('boxModalList');
+  list.innerHTML = b.rows.map((r,ri)=>boxRowHTML(gi,bi,ri,r)).join('')
+    + `<div class="bm-add" onclick="addBoxRow(${gi},${bi})">＋ 添加一行</div>`;
+}
+/* 仅在末尾追加一个新行节点，不重建已有 DOM——保住输入焦点与手机输入法，防止键盘自动收起 */
+function appendBoxRowEl(gi,bi){
+  const list = document.getElementById('boxModalList');
+  const addBtn = list.querySelector('.bm-add');
+  const ri = groups[gi].boxes[bi].rows.length - 1;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = boxRowHTML(gi,bi,ri,groups[gi].boxes[bi].rows[ri]).trim();
+  list.insertBefore(tmp.firstChild, addBtn);
 }
 
 function updBoxRowModal(gi,bi,ri,field,val){
   if(!groups[gi].boxes[bi]) return;
-  groups[gi].boxes[bi].rows[ri][field]=val;
-  // Auto-add row
-  if(ri===groups[gi].boxes[bi].rows.length-1 && groups[gi].boxes[bi].rows[ri].name.trim() && groups[gi].boxes[bi].rows[ri].qty){
-    groups[gi].boxes[bi].rows.push({name:'',qty:''});
-    renderBoxModalList(gi,bi);
+  const box = groups[gi].boxes[bi];
+  box.rows[ri][field]=val;
+  // 末行名称+数量都填好后自动续一行；只追加节点，不整体重绘（重绘会销毁输入框、收起手机输入法）
+  if(ri===box.rows.length-1 && !_bmComposing && box.rows[ri].name.trim() && box.rows[ri].qty){
+    box.rows.push({name:'',qty:''});
+    appendBoxRowEl(gi,bi);
   }
   save();
   autoSyncBox(gi,bi);
@@ -2236,34 +2345,7 @@ document.addEventListener('contextmenu',(e)=>{
 // 禁止双击/长按选中文字放大（输入框除外，已由 CSS 处理）
 document.addEventListener('gesturestart',(e)=>e.preventDefault());
 
-// === 恢复模式：清空本地旧数据，强制从云端拉取 ===
-localStorage.removeItem('xz_v4'); // 清掉本地旧数据
-groups=[]; // 清空内存
-loadSyncCfg();
-// 显示加载提示
-var _loadTip=document.createElement('div');
-_loadTip.id='_loadTip';
-_loadTip.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a1a;color:#4CAF50;padding:20px 30px;border-radius:12px;font-size:16px;z-index:99999;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
-_loadTip.innerHTML='<div style="margin-bottom:8px;">🔄 正在从云端恢复数据...</div><div style="font-size:13px;color:#888;">版本 v8 · 请勿关闭</div>';
-document.body.appendChild(_loadTip);
-render();
-syncPull(true).then(function(){
-  var tip=document.getElementById('_loadTip');
-  if(tip){
-    tip.style.color='#4CAF50';
-    tip.innerHTML='<div style="margin-bottom:8px;">✅ 同步完成！</div><div style="font-size:13px;color:#888;">组数: '+groups.length+'</div>';
-    setTimeout(function(){ tip.remove(); }, 3000);
-  }
-}).catch(function(e){
-  var tip=document.getElementById('_loadTip');
-  if(tip){
-    tip.style.color='#f44336';
-    tip.innerHTML='❌ 同步失败: '+e.message;
-  }
-});
-// 每隔一段时间自动拉取一次
-window._restoreMode=true; // RESTORE MODE: pause auto-sync
-// setInterval(()=>{ if(syncCfg&&syncCfg.token) syncPull(); },30000);
+load();render();loadSyncCfg();
 
 // ===== Image viewer =====
 function viewImg(src){
@@ -2345,12 +2427,7 @@ document.addEventListener('keydown',(e)=>{
   // Ctrl/Cmd + S: manual sync
   if((e.ctrlKey||e.metaKey) && e.key==='s'){
     e.preventDefault();
-    if(syncCfg && syncCfg.token){
-      syncPush(true);
-      toast('正在同步…');
-    } else {
-      openSyncSettings();
-    }
+    manualSync();
     return;
   }
 
