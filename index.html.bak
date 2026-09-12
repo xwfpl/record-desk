@@ -1030,7 +1030,7 @@ async function syncPull(forceMerge=false){
     }
   }catch(e){ console.error(e); toast('同步失败：'+e.message); }
 }
-function syncPush(force=false){ if(window._restoreMode) return; // RESTORE MODE: pause push
+function syncPush(force=false){
   if(!syncCfg||!syncCfg.token) return;
   clearTimeout(syncTimer);
   syncTimer=setTimeout(async ()=>{
@@ -2193,10 +2193,9 @@ document.addEventListener('contextmenu',(e)=>{
 // 禁止双击/长按选中文字放大（输入框除外，已由 CSS 处理）
 document.addEventListener('gesturestart',(e)=>e.preventDefault());
 
-load();render();loadSyncCfg();syncPull(true); // RESTORE MODE: force pull
+load();render();loadSyncCfg();syncPull();
 // 每隔一段时间自动拉取一次
-window._restoreMode=true; // RESTORE MODE: pause auto-sync
-// setInterval(()=>{ if(syncCfg&&syncCfg.token) syncPull(); },30000);
+setInterval(()=>{ if(syncCfg&&syncCfg.token) syncPull(); },30000);
 
 // ===== Image viewer =====
 function viewImg(src){
