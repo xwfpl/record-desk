@@ -40,8 +40,11 @@
   .wrap{max-width:580px;margin:0 auto;padding:0 16px 40px;}
 
   /* Top bar */
-  .header{display:flex;align-items:center;margin-bottom:12px;}
-  .header-actions{display:flex;gap:4px;flex:1;justify-content:flex-end;}
+  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:6px;}
+  .brand{display:flex;align-items:center;gap:4px;flex-shrink:0;}
+  .brand-icon{font-size:18px;line-height:1;}
+  .brand-name{font-size:15px;font-weight:700;color:var(--text);letter-spacing:.5px;white-space:nowrap;}
+  .header-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;}
   .btn{
     border:none;border-radius:var(--radius-sm);
     padding:7px 10px;font-size:12px;font-weight:600;
@@ -91,7 +94,7 @@
   .grp-head.collapsed .grp-arrow{transform:rotate(-90deg);}
   .grp-head.collapsed{border-bottom:none;}
   .grp-title{
-    flex:0 1 auto;font-size:19px;font-weight:700;color:var(--text);
+    flex:0 1 auto;font-size:16px;font-weight:700;color:var(--text);
     border:none;background:transparent;outline:none;font-family:var(--font);
     padding:2px 4px;border-radius:0;min-width:0;
     transition:all .2s;
@@ -601,6 +604,7 @@
     .row{ padding-top:4px; padding-bottom:4px; }
     .inp{ padding-top:2px; padding-bottom:2px; }
     .grp-date{width:86px;font-size:13px;}
+    .brand-name{font-size:13px;}
     .header-actions{gap:3px;}
     .btn{padding:6px 8px;font-size:11px;}
     .search-input{font-size:13px;}
@@ -733,6 +737,10 @@
 <div class="wrap">
 
   <div class="header">
+    <div class="brand">
+      <span class="brand-icon">🌸</span>
+      <span class="brand-name">暖记</span>
+    </div>
     <div class="header-actions">
       <button class="btn btn-ghost" onclick="manualSync()" title="上传本地数据到云端">⬆️上传</button>
       <button class="btn btn-ghost" onclick="pullLatest()" title="从云端下载最新版本">⬇️更新</button>
