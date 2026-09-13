@@ -40,20 +40,14 @@
   .wrap{max-width:580px;margin:0 auto;padding:0 16px 40px;}
 
   /* Top bar */
-  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;}
-  .brand{display:flex;align-items:center;gap:8px;}
-  .brand-icon{
-    font-size:22px;line-height:1;
-    color:#e8a098;
-    display:flex;align-items:center;justify-content:center;
-  }
-  .brand-name{font-size:16px;font-weight:700;color:var(--text);letter-spacing:.5px;}
-  .header-actions{display:flex;gap:6px;}
+  .header{display:flex;align-items:center;margin-bottom:12px;}
+  .header-actions{display:flex;gap:4px;flex:1;justify-content:flex-end;}
   .btn{
     border:none;border-radius:var(--radius-sm);
-    padding:6px 12px;font-size:12px;font-weight:600;
+    padding:7px 10px;font-size:12px;font-weight:600;
     cursor:pointer;transition:all .2s;font-family:var(--font);
-    display:inline-flex;align-items:center;gap:4px;white-space:nowrap;
+    display:inline-flex;align-items:center;gap:3px;white-space:nowrap;
+    flex-shrink:0;
   }
   .btn-pink{background:#f8b4c4;color:#333;transition:all .12s;}
   .btn-pink:hover{filter:brightness(1.05);}
@@ -607,9 +601,8 @@
     .row{ padding-top:4px; padding-bottom:4px; }
     .inp{ padding-top:2px; padding-bottom:2px; }
     .grp-date{width:86px;font-size:13px;}
-    .brand-name{font-size:14px;}
-    .header-actions{gap:4px;}
-    .btn{padding:6px 10px;font-size:11px;}
+    .header-actions{gap:3px;}
+    .btn{padding:6px 8px;font-size:11px;}
     .search-input{font-size:13px;}
     .ftab{padding:5px 10px;font-size:11px;}
   }
@@ -740,16 +733,12 @@
 <div class="wrap">
 
   <div class="header">
-    <div class="brand">
-      <div class="brand-icon">🌸</div>
-      <span class="brand-name">暖记 · 台</span>
-    </div>
     <div class="header-actions">
-      <button class="btn btn-ghost" onclick="manualSync()" title="上传本地数据到云端">⬆️ 上传</button>
-      <button class="btn btn-ghost" onclick="pullLatest()" title="从云端下载最新版本">⬇️ 更新</button>
-      <button class="btn btn-ghost" onclick="openVersionModal()" title="恢复历史版本">🕘 版本</button>
-      <button class="btn btn-ghost" onclick="openSyncSettings()" title="同步设置">☁️ <span id="syncStatus">未连接</span></button>
-      <button class="btn btn-ghost" onclick="clearAll()">🗑 清空</button>
+      <button class="btn btn-ghost" onclick="manualSync()" title="上传本地数据到云端">⬆️上传</button>
+      <button class="btn btn-ghost" onclick="pullLatest()" title="从云端下载最新版本">⬇️更新</button>
+      <button class="btn btn-ghost" onclick="openVersionModal()" title="恢复历史版本">🕘版本</button>
+      <button class="btn btn-ghost" onclick="openSyncSettings()" title="同步设置">☁️<span id="syncStatus">未连接</span></button>
+      <button class="btn btn-ghost" onclick="clearAll()" title="清空全部">🗑</button>
     </div>
   </div>
 
@@ -951,13 +940,13 @@ function load(){
 function save(){ sortGroupsByDate(); localStorage.setItem('xz_v4',JSON.stringify(groups)); }
 /* ⬆️ 上传：只推送本地数据到云端，不拉取 */
 async function manualSync(){
-  if(!syncCfg||!syncCfg.token){ openSyncSettings(); return; }
-  toast('正在上传…');
+  if(!syncCfg||!syncCfg.token){ toast('请先连接 GitHub 同步'); openSyncSettings(); return; }
+  toastPersist('⏳ 正在上传…');
   try{
     await syncPush(true);
-    toast('✅ 已上传到云端');
+    toast('✅ 已上传到云端',3000);
   }catch(e){
-    toast('上传失败：'+e.message);
+    toast('❌ 上传失败：'+e.message,4000);
   }
 }
 /* ⬇️ 更新：从云端下载最新版本覆盖本地 */
@@ -1217,35 +1206,38 @@ async function syncPull(forceMerge=false){
   }catch(e){ console.error(e); toast('同步失败：'+e.message); }
 }
 function syncPush(force=false){
-  if(!syncCfg||!syncCfg.token) return;
+  if(!syncCfg||!syncCfg.token) return Promise.resolve();
   clearTimeout(syncTimer);
-  syncTimer=setTimeout(async ()=>{
-    try{
-      const now=Date.now();
-      groups._syncTs=now;
-      const plain=JSON.stringify({_syncTs:now,groups});
-      // 有密码则加密，否则明文
-      let outStr=plain;
-      if(syncCfg.secret){
-        const enc=await encryptStr(plain, syncCfg.secret);
-        outStr=JSON.stringify(enc);
-      }
-      const data=await ghApi(syncCfg.file);
-      const body={
-        message:`sync ${new Date(now).toLocaleString()}`,
-        content:btoa(unescape(encodeURIComponent(outStr))),
-        branch:syncCfg.branch
-      };
-      if(data) body.sha=data.sha;
-      const r=await fetch(`https://api.github.com/repos/${syncCfg.user}/${syncCfg.repo}/contents/${syncCfg.file}`,{
-        method:'PUT',
-        headers:{'Authorization':`token ${syncCfg.token}`,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
-        body:JSON.stringify(body)
-      });
-      if(!r.ok) throw new Error('推送失败 '+r.status);
-      updateSyncStatusUI();
-    }catch(e){ console.error(e); toast(syncCfg.secret?'加密同步失败：'+e.message:'同步失败：'+e.message); }
-  },force?0:1500);
+  return new Promise((resolve,reject)=>{
+    syncTimer=setTimeout(async ()=>{
+      try{
+        const now=Date.now();
+        groups._syncTs=now;
+        const plain=JSON.stringify({_syncTs:now,groups});
+        // 有密码则加密，否则明文
+        let outStr=plain;
+        if(syncCfg.secret){
+          const enc=await encryptStr(plain, syncCfg.secret);
+          outStr=JSON.stringify(enc);
+        }
+        const data=await ghApi(syncCfg.file);
+        const body={
+          message:`sync ${new Date(now).toLocaleString()}`,
+          content:btoa(unescape(encodeURIComponent(outStr))),
+          branch:syncCfg.branch
+        };
+        if(data) body.sha=data.sha;
+        const r=await fetch(`https://api.github.com/repos/${syncCfg.user}/${syncCfg.repo}/contents/${syncCfg.file}`,{
+          method:'PUT',
+          headers:{'Authorization':`token ${syncCfg.token}`,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
+          body:JSON.stringify(body)
+        });
+        if(!r.ok) throw new Error('推送失败 '+r.status);
+        updateSyncStatusUI();
+        resolve();
+      }catch(e){ console.error(e); reject(e); }
+    },force?0:1500);
+  });
 }
 
 /* ====== 版本恢复 ====== */
