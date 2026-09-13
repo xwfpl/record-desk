@@ -745,8 +745,9 @@
       <span class="brand-name">暖记 · 台</span>
     </div>
     <div class="header-actions">
-      <button class="btn btn-ghost" onclick="manualSync()" title="手动同步">⬆️ 同步</button>
-      <button class="btn btn-ghost" onclick="openVersionModal()" title="恢复版本">🕘 版本</button>
+      <button class="btn btn-ghost" onclick="manualSync()" title="上传本地数据到云端">⬆️ 上传</button>
+      <button class="btn btn-ghost" onclick="pullLatest()" title="从云端下载最新版本">⬇️ 更新</button>
+      <button class="btn btn-ghost" onclick="openVersionModal()" title="恢复历史版本">🕘 版本</button>
       <button class="btn btn-ghost" onclick="openSyncSettings()" title="同步设置">☁️ <span id="syncStatus">未连接</span></button>
       <button class="btn btn-ghost" onclick="clearAll()">🗑 清空</button>
     </div>
@@ -948,12 +949,78 @@ function load(){
   });
 }
 function save(){ sortGroupsByDate(); localStorage.setItem('xz_v4',JSON.stringify(groups)); }
-/* 手动同步：只推送本地数据到云端，不拉取覆盖（避免丢失本地数据）*/
+/* ⬆️ 上传：只推送本地数据到云端，不拉取 */
 async function manualSync(){
   if(!syncCfg||!syncCfg.token){ openSyncSettings(); return; }
   toast('正在上传…');
-  syncPush(true);
-  toast('✅ 已上传到云端');
+  try{
+    await syncPush(true);
+    toast('✅ 已上传到云端');
+  }catch(e){
+    toast('上传失败：'+e.message);
+  }
+}
+/* ⬇️ 更新：从云端下载最新版本覆盖本地 */
+async function pullLatest(){
+  if(!syncCfg||!syncCfg.token){ toast('请先连接 GitHub 同步'); openSyncSettings(); return; }
+  toastPersist('⏳ 正在从云端下载…');
+  try{
+    // 直接用 jsdelivr CDN 下载最新版（main 分支）
+    const cdnUrl=`https://cdn.jsdelivr.net/gh/${syncCfg.user}/${syncCfg.repo}@main/${syncCfg.file}`;
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(), 60000);
+    let rawText;
+    try{
+      const r=await fetch(cdnUrl, {signal:ctrl.signal, cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      rawText=await r.text();
+      clearTimeout(timer);
+    }catch(e1){
+      clearTimeout(timer);
+      console.warn('CDN 失败，尝试 raw URL:', e1.message);
+      toastPersist('⏳ CDN 不通，尝试备用线路…');
+      const rawUrl=`https://raw.githubusercontent.com/${syncCfg.user}/${syncCfg.repo}/main/${syncCfg.file}`;
+      const ctrl2=new AbortController();
+      const timer2=setTimeout(()=>ctrl2.abort(), 60000);
+      try{
+        const r2=await fetch(rawUrl, {signal:ctrl2.signal, cache:'no-store'});
+        if(!r2.ok) throw new Error('HTTP '+r2.status);
+        rawText=await r2.text();
+        clearTimeout(timer2);
+      }catch(e2){
+        clearTimeout(timer2);
+        throw e2;
+      }
+    }
+    
+    toastPersist('⏳ 正在解析数据…');
+    const parsed=JSON.parse(rawText);
+    
+    // 解密
+    let content;
+    if(parsed && parsed._enc){
+      const pw=syncCfg.secret;
+      if(!pw){ toast('🔒 云端数据已加密，请在同步设置填写密码',4000); return; }
+      toastPersist('⏳ 正在解密数据…');
+      try{ content=JSON.parse(await decryptObj(parsed,pw)); }
+      catch(e){ console.error('decrypt error',e); toast('🔒 密码错误，无法解密',4000); return; }
+    }else{
+      content=parsed;
+    }
+    
+    if(content && content.groups){
+      groups=content.groups;
+      groups._syncTs=content._syncTs||0;
+      localStorage.setItem('xz_v4',JSON.stringify(groups));
+      render();
+      toast('✅ 已更新到云端最新版本',4000);
+    }else{
+      toast('云端数据格式异常',4000);
+    }
+  }catch(e){
+    console.error('pullLatest error',e);
+    toast('❌ 更新失败：'+e.message,5000);
+  }
 }
 
 /* ===== GitHub Sync ===== */
@@ -2520,7 +2587,7 @@ document.addEventListener('keydown',(e)=>{
     return;
   }
 
-  // Ctrl/Cmd + S: manual sync
+  // Ctrl/Cmd + S: upload to cloud
   if((e.ctrlKey||e.metaKey) && e.key==='s'){
     e.preventDefault();
     manualSync();
@@ -2591,7 +2658,7 @@ document.addEventListener('keydown',(e)=>{
       <div class="kb-row"><span class="kb-label">搜索聚焦</span><div class="kb-keys"><span class="kb-key">/</span></div></div>
       <div class="kb-row"><span class="kb-label">显示快捷键</span><div class="kb-keys"><span class="kb-key">?</span></div></div>
       <div class="kb-row"><span class="kb-label">关闭弹窗</span><div class="kb-keys"><span class="kb-key">Esc</span></div></div>
-      <div class="kb-row"><span class="kb-label">手动同步</span><div class="kb-keys"><span class="kb-key">Ctrl</span><span class="kb-key">S</span></div></div>
+      <div class="kb-row"><span class="kb-label">上传数据</span><div class="kb-keys"><span class="kb-key">Ctrl</span><span class="kb-key">S</span></div></div>
       <div class="kb-row"><span class="kb-label">新建分组</span><div class="kb-keys"><span class="kb-key">Ctrl</span><span class="kb-key">N</span></div></div>
       <div class="kb-row"><span class="kb-label">清空搜索</span><div class="kb-keys"><span class="kb-key">Ctrl</span><span class="kb-key">⌫</span></div></div>
     </div>
