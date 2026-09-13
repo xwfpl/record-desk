@@ -91,7 +91,7 @@
   .grp-head.collapsed .grp-arrow{transform:rotate(-90deg);}
   .grp-head.collapsed{border-bottom:none;}
   .grp-title{
-    flex:0 1 auto;font-size:17px;font-weight:700;color:var(--text);
+    flex:0 1 auto;font-size:19px;font-weight:700;color:var(--text);
     border:none;background:transparent;outline:none;font-family:var(--font);
     padding:2px 4px;border-radius:0;min-width:0;
     transition:all .2s;
@@ -1401,7 +1401,7 @@ function render(){
       <!-- Title + date + sum, all in one row -->
       <div class="grp-head ${g.collapsed?'collapsed':''}" data-ghead="${gi}">
         <span class="grp-arrow">▼</span>
-        <input class="grp-title locked" type="text" value="${esc(g.title)}" placeholder="标题（≤6字）" maxlength="6" readonly
+        <input class="grp-title locked" type="text" value="${esc(g.title)}" placeholder="标题（≤12字）" maxlength="12" readonly
           ondblclick="event.stopPropagation();unlockTitle(this,${gi})"
           oninput="updGroup(${gi},'title',this.value)" />
         <input class="grp-date" type="text" value="${esc(g.date)}" placeholder="日期" readonly
