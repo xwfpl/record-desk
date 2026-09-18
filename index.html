@@ -471,6 +471,13 @@
   }
   .bm-fill:hover{filter:brightness(1.02);}
   .bm-fill:active{filter:brightness(.92);}
+  .bm-unlink{
+    flex:0 0 auto;padding:11px 12px;border:1px solid #b8c8b0;border-radius:10px;
+    background:#fff;color:#6a8f5e;font-size:13px;font-weight:700;
+    cursor:pointer;transition:all .12s;
+  }
+  .bm-unlink:hover{background:#eef5ea;border-color:#8fb082;}
+  .bm-unlink:active{filter:brightness(.95);}
   .bm-done{
     flex:1;padding:11px;border:none;border-radius:10px;
     background:#f8b4c4;color:#333;font-size:13px;font-weight:700;
@@ -869,7 +876,8 @@
     <div class="bm-foot">
       <button class="bm-delbox" onclick="delBoxCurrent()">🗑 删除</button>
       <button class="bm-copy" onclick="copyBox()">📋 复制</button>
-      <button class="bm-fill" onclick="fillBoxToParent()">⬆ 填入母表</button>
+      <button class="bm-fill" id="bmFillBtn" onclick="fillBoxToParent()">⬆ 填入母表</button>
+      <button class="bm-unlink" id="bmUnlinkBtn" onclick="unlinkBoxFromParent()" style="display:none;">🔓 取消联动</button>
       <button class="bm-done" onclick="closeBoxModal()">完成</button>
     </div>
   </div>
@@ -1813,6 +1821,16 @@ function openBoxModal(gi,bi){
   };
   renderBoxModalList(gi,bi);
   renderBoxPhotos(gi,bi);
+  // Update fill/unlink button visibility
+  const fillBtn = document.getElementById('bmFillBtn');
+  const unlinkBtn = document.getElementById('bmUnlinkBtn');
+  if(b.linked){
+    fillBtn.style.display = 'none';
+    unlinkBtn.style.display = '';
+  }else{
+    fillBtn.style.display = '';
+    unlinkBtn.style.display = 'none';
+  }
   ov.classList.add('show');
   m.classList.add('show');
 }
@@ -1844,9 +1862,72 @@ function fillBoxToParent(){
   const gi=_boxModalGI, bi=_boxModalBI;
   const result = syncBoxToParent(gi, bi, true);
   if(result){
-    closeBoxModal();
     toast(`已联动母表（新增${result.added}项，合并${result.merged}项）`);
+    // Switch to unlink button
+    document.getElementById('bmFillBtn').style.display = 'none';
+    document.getElementById('bmUnlinkBtn').style.display = '';
+    render();
   }
+}
+
+// Unlink box from parent — remove all contributions and break the link
+function unlinkBoxFromParent(){
+  if(_boxModalGI===null||_boxModalBI===null){ return; }
+  const gi=_boxModalGI, bi=_boxModalBI;
+  const g = groups[gi];
+  const b = g.boxes[bi];
+  if(!b || !b.linked){ return; }
+  const boxId = b.id;
+  showConfirm('取消联动？', '母表中此子表的数量贡献会被移除', '🔓', ()=>{
+    g.rows = g.rows.filter(r=>{
+      if(r.fromBoxId === boxId){
+        // Collect contributions from OTHER boxes (exclude self)
+        const otherContribs = r.boxContrib ? Object.keys(r.boxContrib).filter(k=>k!==boxId) : [];
+        if(otherContribs.length > 0){
+          // Keep row, subtract this box's contribution
+          let otherSum = 0;
+          otherContribs.forEach(oid=>{ otherSum += parseFloat(r.boxContrib[oid])||0; });
+          const cur = parseFloat(r.qty)||0;
+          const thisContrib = Math.max(0, cur - otherSum);
+          r.qty = String(n(Math.max(0, cur - thisContrib)));
+          // Clean up this box's contribution record
+          if(r.boxContrib && r.boxContrib[boxId] !== undefined){
+            delete r.boxContrib[boxId];
+            if(Object.keys(r.boxContrib).length === 0) delete r.boxContrib;
+          }
+          // Set fromBoxId to the box with largest remaining contribution
+          if(r.boxContrib){
+            let maxBox = null, maxVal = 0;
+            for(const k in r.boxContrib){
+              const v = parseFloat(r.boxContrib[k])||0;
+              if(v > maxVal){ maxVal = v; maxBox = k; }
+            }
+            r.fromBoxId = maxBox;
+          } else {
+            r.fromBoxId = null;
+          }
+          return true;
+        }
+        // No other contributions — remove the row
+        return false;
+      }
+      if(r.boxContrib && r.boxContrib[boxId] !== undefined){
+        const contrib = parseFloat(r.boxContrib[boxId])||0;
+        const cur = parseFloat(r.qty)||0;
+        r.qty = String(n(Math.max(0, cur - contrib)));
+        delete r.boxContrib[boxId];
+        if(Object.keys(r.boxContrib).length === 0) delete r.boxContrib;
+      }
+      return true;
+    });
+    b.linked = false;
+    save();
+    render();
+    // Update button state in modal
+    document.getElementById('bmFillBtn').style.display = '';
+    document.getElementById('bmUnlinkBtn').style.display = 'none';
+    toast('已取消联动');
+  });
 }
 
 // Sync box data to parent table. Returns {added, merged} or null if no data.
