@@ -750,6 +750,7 @@
       <span class="brand-name">暖记</span>
     </div>
     <div class="header-actions">
+      <button class="btn btn-pink" onclick="manualSave()" title="保存数据">💾保存</button>
       <button class="btn btn-ghost" onclick="manualSync()" title="上传本地数据到云端">⬆️上传</button>
       <button class="btn btn-ghost" onclick="pullLatest()" title="从云端下载最新版本">⬇️更新</button>
       <button class="btn btn-ghost" onclick="openVersionModal()" title="恢复历史版本">🕘版本</button>
@@ -960,6 +961,23 @@ let _saveTimer=null;
 function saveDebounced(){
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(()=>{ save(); }, 200);
+}
+// Manual save button
+function manualSave(){
+  // Clear debounce timer to avoid duplicate save
+  clearTimeout(_saveTimer);
+  save();
+  toast('✅ 已保存', 1500);
+}
+// Auto-upload every 5 minutes (if sync is configured)
+let _autoUploadTimer=null;
+function startAutoUpload(){
+  if(_autoUploadTimer) clearInterval(_autoUploadTimer);
+  _autoUploadTimer=setInterval(()=>{
+    if(syncCfg && syncCfg.token){
+      syncPush(true).catch(()=>{}); // silent auto-upload
+    }
+  }, 5*60*1000); // 5 minutes
 }
 /* ⬆️ 上传：只推送本地数据到云端，不拉取 */
 async function manualSync(){
@@ -1797,14 +1815,12 @@ function delBoxRow(gi,bi,ri){
     if(groups[gi].boxes[bi].rows.length<=1) groups[gi].boxes[bi].rows=[{name:'',qty:''}];
     else groups[gi].boxes[bi].rows.splice(ri,1);
     save(); renderBoxModalList(gi,bi);
-    autoSyncBox(gi,bi);
     return;
   }
-  showConfirm(`删除「${r.name||'未命名'}」？`, '删除后子表母表同步移除', '🗑', ()=>{
+  showConfirm(`删除「${r.name||'未命名'}」？`, '删除后子表数据移除，需手动重新填入母表', '🗑', ()=>{
     if(groups[gi].boxes[bi].rows.length<=1) groups[gi].boxes[bi].rows=[{name:'',qty:''}];
     else groups[gi].boxes[bi].rows.splice(ri,1);
     save(); renderBoxModalList(gi,bi);
-    autoSyncBox(gi,bi);
     toast('已删除');
   });
 }
@@ -2235,7 +2251,6 @@ function updBoxRowModal(gi,bi,ri,field,val){
     appendBoxRowEl(gi,bi);
   }
   saveDebounced();
-  autoSyncBox(gi,bi);
 }
 function delGroup(i){
   const g = groups[i];
@@ -2684,7 +2699,7 @@ document.addEventListener('contextmenu',(e)=>{
 // 禁止双击/长按选中文字放大（输入框除外，已由 CSS 处理）
 document.addEventListener('gesturestart',(e)=>e.preventDefault());
 
-load();render();loadSyncCfg();
+load();render();loadSyncCfg();startAutoUpload();
 
 // ===== Image viewer =====
 function viewImg(src){
