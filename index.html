@@ -1705,22 +1705,30 @@ function delBox(gi,bi){
       const boxId = b.id;
       g.rows = g.rows.filter(r=>{
         if(r.fromBoxId === boxId){
-          // Check if other boxes also contribute — don't delete the row
-          const otherContribs = r.boxContrib ? Object.keys(r.boxContrib) : [];
+          // Collect contributions from OTHER boxes (exclude self)
+          const otherContribs = r.boxContrib ? Object.keys(r.boxContrib).filter(k=>k!==boxId) : [];
           if(otherContribs.length > 0){
             let otherSum = 0;
             otherContribs.forEach(oid=>{ otherSum += parseFloat(r.boxContrib[oid])||0; });
             const cur = parseFloat(r.qty)||0;
             const thisContrib = Math.max(0, cur - otherSum);
             r.qty = String(n(Math.max(0, cur - thisContrib)));
-            r.fromBoxId = null;
-            // Set fromBoxId to the box with largest remaining contribution
-            let maxBox = null, maxVal = 0;
-            for(const k in r.boxContrib){
-              const v = parseFloat(r.boxContrib[k])||0;
-              if(v > maxVal){ maxVal = v; maxBox = k; }
+            // Clean up this box's contribution record
+            if(r.boxContrib && r.boxContrib[boxId] !== undefined){
+              delete r.boxContrib[boxId];
+              if(Object.keys(r.boxContrib).length === 0) delete r.boxContrib;
             }
-            r.fromBoxId = maxBox;
+            // Set fromBoxId to the box with largest remaining contribution
+            if(r.boxContrib){
+              let maxBox = null, maxVal = 0;
+              for(const k in r.boxContrib){
+                const v = parseFloat(r.boxContrib[k])||0;
+                if(v > maxVal){ maxVal = v; maxBox = k; }
+              }
+              r.fromBoxId = maxBox;
+            } else {
+              r.fromBoxId = null;
+            }
             return true;
           }
           return false;
@@ -1852,24 +1860,38 @@ function syncBoxToParent(gi, bi, isInitial){
   g.rows = g.rows.filter(r=>{
     // If this row was originally created by this box
     if(r.fromBoxId === boxId){
-      // Check if there are contributions from OTHER boxes
-      const otherContribs = r.boxContrib ? Object.keys(r.boxContrib) : [];
+      // Collect contributions from OTHER boxes (exclude self)
+      const otherContribs = r.boxContrib ? Object.keys(r.boxContrib).filter(k=>k!==boxId) : [];
       if(otherContribs.length > 0){
         // There are other boxes contributing — DON'T delete the row
-        // Instead, subtract this box's contribution
-        // This box's contribution = current qty - sum of all other boxContrib
+        // Subtract this box's contribution = current qty - sum of other boxContrib
         let otherSum = 0;
         otherContribs.forEach(oid=>{ otherSum += parseFloat(r.boxContrib[oid])||0; });
         const cur = parseFloat(r.qty)||0;
         const thisContrib = Math.max(0, cur - otherSum);
         r.qty = String(n(Math.max(0, cur - thisContrib)));
-        r.fromBoxId = null; // no longer "belongs" to this box
+        // Clean up this box's contribution record
+        if(r.boxContrib && r.boxContrib[boxId] !== undefined){
+          delete r.boxContrib[boxId];
+          if(Object.keys(r.boxContrib).length === 0) delete r.boxContrib;
+        }
+        // Set fromBoxId to the box with largest remaining contribution
+        if(r.boxContrib){
+          let maxBox = null, maxVal = 0;
+          for(const k in r.boxContrib){
+            const v = parseFloat(r.boxContrib[k])||0;
+            if(v > maxVal){ maxVal = v; maxBox = k; }
+          }
+          r.fromBoxId = maxBox;
+        } else {
+          r.fromBoxId = null;
+        }
         return true; // keep the row
       }
       // No other contributions — safe to delete
       return false;
     }
-    // Normal contribution tracking
+    // Normal contribution tracking (row created by other box or manually)
     if(r.boxContrib && r.boxContrib[boxId] !== undefined){
       const contrib = parseFloat(r.boxContrib[boxId])||0;
       const cur = parseFloat(r.qty)||0;
@@ -1900,22 +1922,13 @@ function syncBoxToParent(gi, bi, isInitial){
   let added = 0, mergedCount = 0;
   order.forEach(name=>{
     const qty = n(merged[name]);
-    // Find existing row with same name (any row, including those from other boxes)
+    // Find existing row with same name
     const existIdx = g.rows.findIndex(r=>r.name.trim()===name);
     if(existIdx>=0){
       const cur = parseFloat(g.rows[existIdx].qty)||0;
       g.rows[existIdx].qty = String(n(cur + qty));
       if(!g.rows[existIdx].boxContrib) g.rows[existIdx].boxContrib = {};
       g.rows[existIdx].boxContrib[boxId] = qty;
-      // If row has no fromBoxId, set it to the box with largest contribution
-      if(!g.rows[existIdx].fromBoxId){
-        let maxBox = boxId, maxVal = qty;
-        for(const k in g.rows[existIdx].boxContrib){
-          const v = parseFloat(g.rows[existIdx].boxContrib[k])||0;
-          if(v > maxVal){ maxVal = v; maxBox = k; }
-        }
-        g.rows[existIdx].fromBoxId = maxBox;
-      }
       mergedCount++;
     } else {
       const emptyIdx = g.rows.findIndex(r=>!r.name.trim()&&!r.qty&&!r.price);
@@ -1943,16 +1956,17 @@ function syncBoxToParent(gi, bi, isInitial){
   return {added, merged: mergedCount};
 }
 
-// Auto-sync when box changes if linked
+// Auto-sync when box changes if linked (debounced)
+let _autoSyncTimer=null;
 function autoSyncBox(gi, bi){
   const b = groups[gi] && groups[gi].boxes[bi];
-  if(b && b.linked){
+  if(!b || !b.linked) return;
+  clearTimeout(_autoSyncTimer);
+  _autoSyncTimer=setTimeout(()=>{
     syncBoxToParent(gi, bi, false);
-    // Re-render groups (modal is outside #groups so it won't be affected)
-    render();
-    // Explicitly update totals for safety
+    // Only update totals, no full re-render to avoid lag
     renderTotals(gi);
-  }
+  }, 300);
 }
 
 /* ====== Name Suggestion ====== */
