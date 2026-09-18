@@ -954,7 +954,13 @@ function load(){
     });
   });
 }
-function save(){ sortGroupsByDate(); localStorage.setItem('xz_v4',JSON.stringify(groups)); }
+function save(){ sortGroupsByDate(); localStorage.setItem('xz_v4',JSON.stringify(groups)); markNameCacheDirty(); }
+// Debounced save for box editing — avoids serializing large JSON on every keystroke
+let _saveTimer=null;
+function saveDebounced(){
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>{ save(); }, 200);
+}
 /* ⬆️ 上传：只推送本地数据到云端，不拉取 */
 async function manualSync(){
   if(!syncCfg||!syncCfg.token){ toast('请先连接 GitHub 同步'); openSyncSettings(); return; }
@@ -2077,58 +2083,58 @@ function collectAllNames(){
 let _nsActive = null;
 let _nsItems = [];
 let _nsIdx = -1;
+let _nsCache = null;  // cached list of all names (array)
+let _nsCacheDirty = true;
+let _nsTimer = null;  // debounce timer
+
+function markNameCacheDirty(){ _nsCacheDirty = true; }
+
+function _getAllNamesArray(){
+  if(!_nsCacheDirty && _nsCache) return _nsCache;
+  const set = new Set();
+  groups.forEach((g)=>{
+    g.rows.forEach(r=>{
+      const nm = r.name.trim();
+      if(nm) set.add(nm);
+    });
+    (g.boxes||[]).forEach((b)=>{
+      b.rows.forEach(r=>{
+        const nm = r.name.trim();
+        if(nm) set.add(nm);
+      });
+    });
+  });
+  _nsCache = Array.from(set);
+  _nsCacheDirty = false;
+  return _nsCache;
+}
 
 function showNameSuggest(inp, type, gi, param2, param3){
   _nsActive = inp;
   const dd = inp.parentElement.querySelector('.ns-dropdown');
   if(!dd) return;
-  // For parent: param2=ri, param3=undefined; for box: param2=bi, param3=ri
-  const bi = (type==='box') ? param2 : null;
-  const ri = (type==='box') ? param3 : param2;
   const val = inp.value.trim().toLowerCase();
   if(!val){ dd.classList.remove('show'); return; }
-  const allNames = collectAllNames();
-  // Count occurrences EXCLUDING the current row being edited
-  const nameCounts = {};
-  groups.forEach((g,gidx)=>{
-    g.rows.forEach((r,ridx)=>{
-      const nm = r.name.trim();
-      if(!nm) return;
-      // Skip current row in parent table
-      if(type==='parent' && gidx===gi && ridx===ri) return;
-      nameCounts[nm] = (nameCounts[nm]||0) + 1;
-    });
-    (g.boxes||[]).forEach((b,bidx)=>{
-      b.rows.forEach((r,ridx)=>{
-        const nm = r.name.trim();
-        if(!nm) return;
-        // Skip current row in box
-        if(type==='box' && gidx===gi && bidx===bi && ridx===ri) return;
-        nameCounts[nm] = (nameCounts[nm]||0) + 1;
-      });
-    });
-  });
-  // Only show names that exist elsewhere (count >= 1)
-  let matches = Object.keys(nameCounts).filter(nm=>{
-    if(nameCounts[nm] < 1) return false;
-    return nm.toLowerCase().includes(val) || val.includes(nm.toLowerCase());
-  });
-  if(val){
-    // Prioritize starts-with matches
+  // Debounce: don't run heavy matching on every keystroke
+  clearTimeout(_nsTimer);
+  _nsTimer = setTimeout(()=>{
+    const allNames = _getAllNamesArray();
+    const matches = allNames.filter(nm=>nm.toLowerCase().includes(val));
+    // Prioritize starts-with matches, take top 8
     matches.sort((a,b)=>{
       const aStarts = a.toLowerCase().startsWith(val) ? 0 : 1;
       const bStarts = b.toLowerCase().startsWith(val) ? 0 : 1;
       return aStarts - bStarts;
     });
-  }
-  matches = matches.slice(0,8);
-  _nsItems = matches;
-  _nsIdx = -1;
-  if(!matches.length){ dd.classList.remove('show'); return; }
-  dd.innerHTML = matches.map((nm,i)=>{
-    return `<div class="ns-item" data-name="${esc(nm)}" data-idx="${i}" onmousedown="event.preventDefault();pickNameSuggest('${esc(nm)}')">${esc(nm)}</div>`;
-  }).join('');
-  dd.classList.add('show');
+    const top = matches.slice(0,8);
+    _nsItems = top;
+    _nsIdx = -1;
+    if(!top.length){ dd.classList.remove('show'); return; }
+    dd.innerHTML = top.map((nm,i)=>{
+      return `<div class="ns-item" data-name="${esc(nm)}" data-idx="${i}" onmousedown="event.preventDefault();pickNameSuggest('${esc(nm)}')">${esc(nm)}</div>`;
+    }).join('');
+    dd.classList.add('show');
+  }, 150);
 }
 
 function hideNameSuggest(inp){
@@ -2228,7 +2234,7 @@ function updBoxRowModal(gi,bi,ri,field,val){
     box.rows.push({name:'',qty:''});
     appendBoxRowEl(gi,bi);
   }
-  save();
+  saveDebounced();
   autoSyncBox(gi,bi);
 }
 function delGroup(i){
