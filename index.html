@@ -2397,10 +2397,13 @@ function showNameSuggest(inp, type, gi, param2, param3){
 
 function hideNameSuggest(inp){
   if(inp === _nsActive){
+    clearTimeout(_nsTimer);
     setTimeout(()=>{
       const dd = inp.parentElement.querySelector('.ns-dropdown');
       if(dd) dd.classList.remove('show');
       _nsActive = null;
+      _nsItems = [];
+      _nsIdx = -1;
     },150);
   }
 }
@@ -2410,8 +2413,12 @@ function pickNameSuggest(name){
   _nsActive.value = name;
   // Trigger oninput
   _nsActive.dispatchEvent(new Event('input',{bubbles:true}));
+  // 清除 oninput 触发的防抖定时器，防止候选框重新弹出
+  clearTimeout(_nsTimer);
   const dd = _nsActive.parentElement.querySelector('.ns-dropdown');
   if(dd) dd.classList.remove('show');
+  _nsItems = [];
+  _nsIdx = -1;
   _nsActive = null;
 }
 
@@ -2432,8 +2439,12 @@ document.addEventListener('keydown',(e)=>{
     e.preventDefault();
     pickNameSuggest(_nsItems[_nsIdx]);
   } else if(e.key==='Escape'){
+    e.preventDefault();
+    clearTimeout(_nsTimer);
     dd.classList.remove('show');
     _nsActive = null;
+    _nsItems = [];
+    _nsIdx = -1;
   }
 });
 function updateNsHighlight(dd){
