@@ -2371,9 +2371,10 @@ function showNameSuggest(inp, type, gi, param2, param3){
   const dd = inp.parentElement.querySelector('.ns-dropdown');
   if(!dd) return;
   const val = inp.value.trim().toLowerCase();
-  if(!val){ dd.classList.remove('show'); return; }
-  // Debounce: don't run heavy matching on every keystroke
+  // 先清除之前的防抖定时器，避免旧任务重新弹出候选框
   clearTimeout(_nsTimer);
+  if(!val){ dd.classList.remove('show'); _nsItems = []; _nsIdx = -1; return; }
+  // Debounce: don't run heavy matching on every keystroke
   _nsTimer = setTimeout(()=>{
     const allNames = _getAllNamesArray();
     const matches = allNames.filter(nm=>nm.toLowerCase().includes(val));
