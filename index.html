@@ -937,6 +937,203 @@ let groupTrash = [];
 let _searchQuery = '';
 let _statusFilter = -1; // -1 = all
 
+/* ====== IndexedDB 照片存储（突破 localStorage 5MB 限制）====== */
+let _photoDB = null;
+const _PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+function initPhotoDB(){
+  return new Promise((resolve, reject) => {
+    try{
+      const req = indexedDB.open('photoDB', 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if(!db.objectStoreNames.contains('photos')){
+          db.createObjectStore('photos', {keyPath: 'id'});
+        }
+      };
+      req.onsuccess = (e) => { _photoDB = e.target.result; resolve(_photoDB); };
+      req.onerror = (e) => { console.error('IndexedDB 打开失败', e); resolve(null); };
+    }catch(e){ console.error('IndexedDB 不可用', e); resolve(null); }
+  });
+}
+
+function dbSavePhoto(id, dataURL){
+  return new Promise((resolve) => {
+    if(!_photoDB) return resolve(false);
+    try{
+      const tx = _photoDB.transaction('photos', 'readwrite');
+      tx.objectStore('photos').put({id, data: dataURL});
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => { console.error('dbSavePhoto error', tx.error); resolve(false); };
+    }catch(e){ console.error('dbSavePhoto', e); resolve(false); }
+  });
+}
+
+function dbGetPhoto(id){
+  return new Promise((resolve) => {
+    if(!_photoDB) return resolve(null);
+    try{
+      const tx = _photoDB.transaction('photos', 'readonly');
+      const req = tx.objectStore('photos').get(id);
+      req.onsuccess = () => resolve(req.result ? req.result.data : null);
+      req.onerror = () => resolve(null);
+    }catch(e){ console.error('dbGetPhoto', e); resolve(null); }
+  });
+}
+
+function dbDeletePhoto(id){
+  return new Promise((resolve) => {
+    if(!_photoDB) return resolve(false);
+    try{
+      const tx = _photoDB.transaction('photos', 'readwrite');
+      tx.objectStore('photos').delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    }catch(e){ resolve(false); }
+  });
+}
+
+function dbGetAllPhotos(){
+  return new Promise((resolve) => {
+    if(!_photoDB) return resolve({});
+    try{
+      const tx = _photoDB.transaction('photos', 'readonly');
+      const req = tx.objectStore('photos').getAll();
+      req.onsuccess = () => {
+        const map = {};
+        (req.result || []).forEach(r => { map[r.id] = r.data; });
+        resolve(map);
+      };
+      req.onerror = () => resolve({});
+    }catch(e){ console.error('dbGetAllPhotos', e); resolve({}); }
+  });
+}
+
+function dbClearPhotos(){
+  return new Promise((resolve) => {
+    if(!_photoDB) return resolve(false);
+    try{
+      const tx = _photoDB.transaction('photos', 'readwrite');
+      tx.objectStore('photos').clear();
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    }catch(e){ resolve(false); }
+  });
+}
+
+/* 生成唯一照片 ID */
+function genPhotoId(){
+  return 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+/* 判断是否为 IndexedDB 照片 ID（新格式）*/
+function isPhotoId(s){
+  return s && typeof s === 'string' && s.startsWith('p_');
+}
+
+/* 生成 img 标签：IndexedDB 照片用 data-pid 占位，旧 base64 直接用 src */
+function photoTag(p){
+  if(isPhotoId(p)){
+    return `<img data-pid="${p}" src="${_PLACEHOLDER}" onclick="viewImg('${p}')"/>`;
+  }
+  return `<img src="${p}" onclick="viewImg('${p}')"/>`;
+}
+
+/* 渲染后异步加载所有照片到 img 元素 */
+async function loadAllPhotos(){
+  const imgs = document.querySelectorAll('img[data-pid]');
+  if(!imgs.length) return;
+  // 并行加载，每批最多 20 张避免卡顿
+  const batch = 20;
+  for(let i = 0; i < imgs.length; i += batch){
+    const slice = [...imgs].slice(i, i + batch);
+    await Promise.all(slice.map(async img => {
+      const pid = img.dataset.pid;
+      if(!pid) return;
+      const data = await dbGetPhoto(pid);
+      if(data) img.src = data;
+    }));
+  }
+}
+
+/* 迁移旧 base64 照片到 IndexedDB */
+async function migratePhotos(){
+  let migrated = false;
+  for(const g of groups){
+    if(g.photos && g.photos.length){
+      for(let j = 0; j < g.photos.length; j++){
+        if(!isPhotoId(g.photos[j]) && typeof g.photos[j] === 'string' && g.photos[j].startsWith('data:')){
+          const id = genPhotoId();
+          await dbSavePhoto(id, g.photos[j]);
+          g.photos[j] = id;
+          migrated = true;
+        }
+      }
+    }
+    if(g.boxes){
+      for(const b of g.boxes){
+        if(!b.photos) b.photos = [];
+        for(let j = 0; j < b.photos.length; j++){
+          if(!isPhotoId(b.photos[j]) && typeof b.photos[j] === 'string' && b.photos[j].startsWith('data:')){
+            const id = genPhotoId();
+            await dbSavePhoto(id, b.photos[j]);
+            b.photos[j] = id;
+            migrated = true;
+          }
+        }
+      }
+    }
+  }
+  if(migrated){
+    try{ localStorage.setItem('xz_v4', JSON.stringify(groups)); }catch(e){}
+    console.log('照片迁移完成');
+  }
+}
+
+/* 应用同步数据：保存照片到 IndexedDB，更新 groups */
+async function applySyncContent(content){
+  if(!content || !content.groups) return false;
+  // 如果云端数据包含 photos map，保存到 IndexedDB
+  if(content.photos){
+    await dbClearPhotos();
+    const entries = Object.entries(content.photos);
+    for(let i = 0; i < entries.length; i++){
+      await dbSavePhoto(entries[i][0], entries[i][1]);
+    }
+  } else {
+    // 旧格式：base64 照片内嵌在 groups 中，迁移到 IndexedDB
+    for(const g of content.groups){
+      if(g.photos){
+        for(let j = 0; j < g.photos.length; j++){
+          if(!isPhotoId(g.photos[j]) && typeof g.photos[j] === 'string' && g.photos[j].startsWith('data:')){
+            const id = genPhotoId();
+            await dbSavePhoto(id, g.photos[j]);
+            g.photos[j] = id;
+          }
+        }
+      }
+      if(g.boxes){
+        for(const b of g.boxes){
+          if(!b.photos) b.photos = [];
+          for(let j = 0; j < b.photos.length; j++){
+            if(!isPhotoId(b.photos[j]) && typeof b.photos[j] === 'string' && b.photos[j].startsWith('data:')){
+              const id = genPhotoId();
+              await dbSavePhoto(id, b.photos[j]);
+              b.photos[j] = id;
+            }
+          }
+        }
+      }
+    }
+  }
+  groups = content.groups;
+  groups._syncTs = content._syncTs || 0;
+  try{ localStorage.setItem('xz_v4', JSON.stringify(groups)); }catch(e){}
+  render();
+  loadAllPhotos();
+  return true;
+}
+
 function load(){
   try{ const r=localStorage.getItem('xz_v4'); if(r) groups=JSON.parse(r); }catch(e){}
   if(!groups.length) groups=[newGroup()];
@@ -968,7 +1165,7 @@ function save(){
   }catch(e){
     console.error('保存失败', e);
     const sizeKB = Math.round(JSON.stringify(groups).length/1024);
-    toast(`⚠️ 保存失败！数据已满（约 ${sizeKB}KB），请删除一些照片`, 5000);
+    toast(`⚠️ 文本数据已满（约 ${sizeKB}KB），请减少记录数量`, 5000);
     return false;
   }
 }
@@ -978,8 +1175,14 @@ function updateStorageInfo(){
   try{
     const data = localStorage.getItem('xz_v4')||'';
     const kb = Math.round(data.length/1024);
-    el.textContent = `💾${kb}KB`;
-    el.title = `本地数据约 ${kb}KB，浏览器上限通常 5000KB 左右`;
+    // 统计照片数量
+    let photoCount = 0;
+    groups.forEach(g=>{
+      photoCount += (g.photos ? g.photos.length : 0);
+      if(g.boxes) g.boxes.forEach(b=>{ photoCount += (b.photos ? b.photos.length : 0); });
+    });
+    el.textContent = `💾${kb}KB 📷${photoCount}`;
+    el.title = `文本数据约 ${kb}KB（localStorage），照片 ${photoCount} 张（IndexedDB 独立存储）`;
     if(kb > 4000) el.style.color = '#e74c3c';
     else if(kb > 3000) el.style.color = '#f39c12';
     else el.style.color = '';
@@ -1092,10 +1295,8 @@ async function pullLatest(){
     }
     
     if(content && content.groups){
-      groups=content.groups;
-      groups._syncTs=content._syncTs||0;
-      localStorage.setItem('xz_v4',JSON.stringify(groups));
-      render();
+      toastPersist('⏳ 正在写入本地…');
+      await applySyncContent(content);
       toast('✅ 已更新到云端最新版本',4000);
     }else{
       toast('云端数据格式异常',4000);
@@ -1290,10 +1491,7 @@ async function syncPull(forceMerge=false){
     const localTs=groups._syncTs||0;
     if(forceMerge||remoteTs>localTs){
       if(content.groups){
-        groups=content.groups;
-        groups._syncTs=remoteTs;
-        localStorage.setItem('xz_v4',JSON.stringify(groups));
-        render();
+        await applySyncContent(content);
         if(!forceMerge) toast('已从云端同步');
       }
     }
@@ -1307,7 +1505,9 @@ function syncPush(force=false){
       try{
         const now=Date.now();
         groups._syncTs=now;
-        const plain=JSON.stringify({_syncTs:now,groups});
+        // 从 IndexedDB 获取所有照片，包含在同步数据中
+        const photoMap = await dbGetAllPhotos();
+        const plain=JSON.stringify({_syncTs:now,groups,photos:photoMap});
         // 有密码则加密，否则明文
         let outStr=plain;
         if(syncCfg.secret){
@@ -1429,10 +1629,7 @@ async function restoreVersion(commitSha){
     
     if(content && content.groups){
       toastPersist('⏳ 正在写入本地…');
-      groups=content.groups;
-      groups._syncTs=content._syncTs||0;
-      localStorage.setItem('xz_v4',JSON.stringify(groups));
-      render();
+      await applySyncContent(content);
       closeVersionModal();
       toast('✅ 已恢复到历史版本',4000);
     }else{
@@ -1571,7 +1768,7 @@ function render(){
           </div>
           ${g.photos.length ? `
             <div class="photo-grid-mini ${g.photos.length>12?'grid-closed':''}" id="pgrid_${gi}">
-              ${g.photos.map((p,j)=>`<div class="pgm-item"><img src="${p}" onclick="viewImg('${p}')"/><button class="rm" onclick="rmPhoto(${gi},${j})">✕</button></div>`).join('')}
+              ${g.photos.map((p,j)=>`<div class="pgm-item">${photoTag(p)}<button class="rm" onclick="rmPhoto(${gi},${j})">✕</button></div>`).join('')}
             </div>
             ${g.photos.length>12?`<button class="grid-more-btn" id="pmore_${gi}" onclick="togglePhotoGrid(${gi})">展开全部 ${g.photos.length} 张 ▼</button>`:''}
           ` : ''}
@@ -1718,6 +1915,8 @@ function render(){
       });
     }
   });
+  // 异步加载 IndexedDB 中的照片
+  loadAllPhotos();
 }
 
 /* Toggle collapse */
@@ -1805,6 +2004,10 @@ function delBox(gi,bi){
       });
     }
     groups[gi].boxes.splice(bi,1); save(); render();
+    // 清理被删子表的照片
+    if(b.photos && b.photos.length){
+      b.photos.forEach(pid=>{ if(isPhotoId(pid)) dbDeletePhoto(pid); });
+    }
   });
 }
 function updBoxTitle(gi,bi,val){
@@ -2598,13 +2801,12 @@ function handleGroupFiles(gi,files){
     if(!f.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = ev=>{
-      compress(ev.target.result,1080,.82,data=>{
-        groups[gi].photos.push(data);
-        const ok = save();
-        if(!ok){
-          groups[gi].photos.pop();
-          return;
-        }
+      compress(ev.target.result,1080,.82,async data=>{
+        const pid = genPhotoId();
+        const ok = await dbSavePhoto(pid, data);
+        if(!ok){ toast('⚠️ 照片存储失败', 3000); return; }
+        groups[gi].photos.push(pid);
+        save();
         render();
       });
     };
@@ -2612,8 +2814,10 @@ function handleGroupFiles(gi,files){
   });
 }
 function rmPhoto(gi,j){
+  const pid = groups[gi].photos[j];
   groups[gi].photos.splice(j,1);
   save(); render();
+  if(isPhotoId(pid)) dbDeletePhoto(pid);
 }
 function togglePhotoGrid(gi){
   const grid=document.getElementById('pgrid_'+gi);
@@ -2629,16 +2833,14 @@ function handleBoxFiles(files){
     if(!f.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = ev=>{
-      compress(ev.target.result,1080,.82,data=>{
+      compress(ev.target.result,1080,.82,async data=>{
         const b = groups[gi].boxes[bi];
         if(!b) return;
-        b.photos.push(data);
-        const ok = save();
-        if(!ok){
-          // Save failed (likely quota exceeded) — roll back the photo
-          b.photos.pop();
-          return;
-        }
+        const pid = genPhotoId();
+        const ok = await dbSavePhoto(pid, data);
+        if(!ok){ toast('⚠️ 照片存储失败', 3000); return; }
+        b.photos.push(pid);
+        save();
         renderBoxPhotos(gi,bi);
       });
     };
@@ -2648,9 +2850,11 @@ function handleBoxFiles(files){
 function rmBoxPhoto(j){
   if(_boxModalGI===null||_boxModalBI===null) return;
   const gi=_boxModalGI, bi=_boxModalBI;
+  const pid = groups[gi].boxes[bi].photos[j];
   groups[gi].boxes[bi].photos.splice(j,1);
   save();
   renderBoxPhotos(gi,bi);
+  if(isPhotoId(pid)) dbDeletePhoto(pid);
 }
 function renderBoxPhotos(gi,bi){
   const b = groups[gi].boxes[bi];
@@ -2658,8 +2862,9 @@ function renderBoxPhotos(gi,bi){
   if(!grid) return;
   if(!b.photos.length){ grid.innerHTML=''; return; }
   grid.innerHTML = b.photos.map((p,j)=>`
-    <div class="pgm-item"><img src="${p}" onclick="viewImg('${p}')"/><button class="rm" onclick="rmBoxPhoto(${j})">✕</button></div>
+    <div class="pgm-item">${photoTag(p)}<button class="rm" onclick="rmBoxPhoto(${j})">✕</button></div>
   `).join('');
+  loadAllPhotos();
 }
 function compress(src,mw,q,cb){
   const im=new Image();
@@ -2694,15 +2899,21 @@ function fallbackCopy(txt){
 }
 
 /* ====== Export / Clear ====== */
-function exportJSON(){
-  const data = groups.map(g=>({title:g.title,date:g.date,rows:validRows(g),photos:g.photos}));
+async function exportJSON(){
+  const photoMap = await dbGetAllPhotos();
+  const data = groups.map(g=>({
+    title:g.title, date:g.date, rows:validRows(g),
+    photos:g.photos.map(pid=>isPhotoId(pid)?(photoMap[pid]||pid):pid)
+  }));
   if(!data.some(d=>d.rows.length)){toast('暂无数据');return;}
   dl(JSON.stringify(data,null,2),'records.json','application/json');toast('JSON 已导出');
 }
 function dl(content,filename,mime){const blob=new Blob([content],{type:mime});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();URL.revokeObjectURL(a.href);}
 function clearAll(){
-  showConfirm('清空全部？', '所有记录将被删除，不可恢复', '🗑', ()=>{
-    groups=[newGroup()];trash=[];groupTrash=[];save();render();toast('已清空');
+  showConfirm('清空全部？', '所有记录将被删除，不可恢复', '🗑', async ()=>{
+    groups=[newGroup()];trash=[];groupTrash=[];save();render();
+    await dbClearPhotos();
+    toast('已清空');
   });
 }
 
@@ -2740,14 +2951,30 @@ document.addEventListener('contextmenu',(e)=>{
 // 禁止双击/长按选中文字放大（输入框除外，已由 CSS 处理）
 document.addEventListener('gesturestart',(e)=>e.preventDefault());
 
-load();render();loadSyncCfg();startAutoUpload();updateStorageInfo();
+// 启动：先加载文本数据，再初始化 IndexedDB 并迁移旧照片，最后渲染
+(async function(){
+  load();
+  try{ await initPhotoDB(); }catch(e){ console.error('IndexedDB 初始化失败', e); }
+  try{ await migratePhotos(); }catch(e){ console.error('照片迁移失败', e); }
+  render();
+  loadSyncCfg();
+  startAutoUpload();
+  updateStorageInfo();
+})();
 
 // ===== Image viewer =====
-function viewImg(src){
+async function viewImg(src){
   var v=document.getElementById('imgViewer');
   var img=v.querySelector('img');
-  img.src=src;
-  v.classList.add('show');
+  if(isPhotoId(src)){
+    img.src=_PLACEHOLDER;
+    v.classList.add('show');
+    const data=await dbGetPhoto(src);
+    if(data) img.src=data;
+  }else{
+    img.src=src;
+    v.classList.add('show');
+  }
 }
 function closeImgViewer(e){
   if(e) e.stopPropagation();
