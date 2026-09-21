@@ -233,6 +233,14 @@
   }
   .grp-copy:hover{filter:brightness(1.02);}
   .grp-copy:active{filter:brightness(.92);}
+  .grp-clear-sub{
+    background:#f0d5d5;color:#a33;border:none;
+    padding:6px 14px;font-size:11px;font-weight:700;
+    border-radius:var(--radius-sm);cursor:pointer;
+    font-family:var(--font);transition:filter .12s;
+  }
+  .grp-clear-sub:hover{filter:brightness(1.02);}
+  .grp-clear-sub:active{filter:brightness(.92);}
   .grp-arrow{
     font-size:11px;color:var(--gdeep,var(--c1-deep));transition:transform .25s ease;
     flex-shrink:0;font-weight:700;
@@ -1746,6 +1754,7 @@ function render(){
           <div class="grp-sum-total">${grpTotal(g)}</div>
           <div style="display:flex;gap:6px;">
             ${trash.some(t=>t.gi===gi) ? `<button class="grp-restore" onclick="restoreRow(${gi})">↩ 恢复</button>` : ''}
+            ${g.rows.some(r=>r.fromBoxId||r.boxContrib) ? `<button class="grp-clear-sub" onclick="clearSubContrib(${gi})">🧹 清空明细</button>` : ''}
             <button class="grp-copy" onclick="copyGroup(${gi})">📋 复制</button>
           </div>
         </div>
@@ -1862,7 +1871,7 @@ function render(){
       let _moved=false;
       content.addEventListener('mousedown',(e)=>{
         // 跳过按钮、可编辑输入框、添加行、子表数字、图片等交互区；只读标题/日期可起拖
-        if(e.target.closest('button, textarea, .add-row, .box-num, .box-num-add, .pgm-item, .grp-restore, .grp-copy, .grp-restore-btn, .grid-more-btn')) return;
+        if(e.target.closest('button, textarea, .add-row, .box-num, .box-num-add, .pgm-item, .grp-restore, .grp-copy, .grp-clear-sub, .grp-restore-btn, .grid-more-btn')) return;
         if(e.target.closest('input') && !e.target.closest('input[readonly]')) return;
         startX = e.clientX; currentX = 0; dragging = true; _moved=false;
         content.style.transition = 'none';
@@ -2870,6 +2879,47 @@ function compress(src,mw,q,cb){
   const im=new Image();
   im.onload=()=>{let{width:w,height:h}=im;if(w>mw){h=h*mw/w;w=mw;}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);cb(c.toDataURL('image/jpeg',q));};
   im.src=src;
+}
+
+/* ====== 清空子表填入母表的明细 ====== */
+function clearSubContrib(gi){
+  const g = groups[gi];
+  if(!g) return;
+  // 统计将被清除的行数
+  const subRows = g.rows.filter(r=>r.fromBoxId).length;
+  const mergedRows = g.rows.filter(r=>!r.fromBoxId && r.boxContrib).length;
+  const total = subRows + mergedRows;
+  if(!total){ toast('没有子表明细可清除'); return; }
+
+  let msg = `清除子表填入的明细？`;
+  if(subRows) msg += `\n将删除 ${subRows} 行子表数据`;
+  if(mergedRows) msg += `\n将恢复 ${mergedRows} 行手动数据的原始数量`;
+
+  showConfirm('清空明细？', msg, '🧹', ()=>{
+    // 1. 删除 fromBoxId 标记的行（纯子表数据）
+    g.rows = g.rows.filter(r=>{
+      if(r.fromBoxId) return false; // 删除子表创建的行
+      return true;
+    });
+    // 2. 对有 boxContrib 的手动行，减去子表贡献并清理标记
+    g.rows.forEach(r=>{
+      if(r.boxContrib){
+        let subSum = 0;
+        for(const k in r.boxContrib) subSum += parseFloat(r.boxContrib[k])||0;
+        const cur = parseFloat(r.qty)||0;
+        r.qty = String(n(Math.max(0, cur - subSum)));
+        delete r.boxContrib;
+        if(!r.fromBoxId) {} // 手动行保留
+      }
+    });
+    // 3. 取消所有子表的联动状态
+    if(g.boxes){
+      g.boxes.forEach(b=>{ b.linked = false; });
+    }
+    save();
+    render();
+    toast('✅ 已清空子表明细');
+  });
 }
 
 /* ====== Copy ====== */
