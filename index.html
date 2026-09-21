@@ -44,6 +44,7 @@
   .brand{display:flex;align-items:center;gap:4px;flex-shrink:0;}
   .brand-icon{font-size:18px;line-height:1;}
   .brand-name{font-size:15px;font-weight:700;color:var(--text);letter-spacing:.5px;white-space:nowrap;}
+  .storage-info{font-size:11px;color:#999;margin-left:4px;white-space:nowrap;cursor:help;}
   .header-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;}
   .btn{
     border:none;border-radius:var(--radius-sm);
@@ -748,6 +749,7 @@
     <div class="brand">
       <span class="brand-icon">🌸</span>
       <span class="brand-name">暖记</span>
+      <span id="storageInfo" class="storage-info" title="本地数据大小">💾0KB</span>
     </div>
     <div class="header-actions">
       <button class="btn btn-pink" onclick="manualSave()" title="保存数据">💾保存</button>
@@ -955,7 +957,34 @@ function load(){
     });
   });
 }
-function save(){ sortGroupsByDate(); localStorage.setItem('xz_v4',JSON.stringify(groups)); markNameCacheDirty(); }
+function save(){
+  sortGroupsByDate();
+  markNameCacheDirty();
+  try{
+    localStorage.setItem('xz_v4',JSON.stringify(groups));
+    // Update storage size indicator if exists
+    updateStorageInfo();
+    return true;
+  }catch(e){
+    console.error('保存失败', e);
+    const sizeKB = Math.round(JSON.stringify(groups).length/1024);
+    toast(`⚠️ 保存失败！数据已满（约 ${sizeKB}KB），请删除一些照片`, 5000);
+    return false;
+  }
+}
+function updateStorageInfo(){
+  const el = document.getElementById('storageInfo');
+  if(!el) return;
+  try{
+    const data = localStorage.getItem('xz_v4')||'';
+    const kb = Math.round(data.length/1024);
+    el.textContent = `💾${kb}KB`;
+    el.title = `本地数据约 ${kb}KB，浏览器上限通常 5000KB 左右`;
+    if(kb > 4000) el.style.color = '#e74c3c';
+    else if(kb > 3000) el.style.color = '#f39c12';
+    else el.style.color = '';
+  }catch(e){}
+}
 // Debounced save for box editing — avoids serializing large JSON on every keystroke
 let _saveTimer=null;
 function saveDebounced(){
@@ -2571,7 +2600,12 @@ function handleGroupFiles(gi,files){
     reader.onload = ev=>{
       compress(ev.target.result,1080,.82,data=>{
         groups[gi].photos.push(data);
-        save(); render();
+        const ok = save();
+        if(!ok){
+          groups[gi].photos.pop();
+          return;
+        }
+        render();
       });
     };
     reader.readAsDataURL(f);
@@ -2596,8 +2630,15 @@ function handleBoxFiles(files){
     const reader = new FileReader();
     reader.onload = ev=>{
       compress(ev.target.result,1080,.82,data=>{
-        groups[gi].boxes[bi].photos.push(data);
-        save();
+        const b = groups[gi].boxes[bi];
+        if(!b) return;
+        b.photos.push(data);
+        const ok = save();
+        if(!ok){
+          // Save failed (likely quota exceeded) — roll back the photo
+          b.photos.pop();
+          return;
+        }
         renderBoxPhotos(gi,bi);
       });
     };
@@ -2699,7 +2740,7 @@ document.addEventListener('contextmenu',(e)=>{
 // 禁止双击/长按选中文字放大（输入框除外，已由 CSS 处理）
 document.addEventListener('gesturestart',(e)=>e.preventDefault());
 
-load();render();loadSyncCfg();startAutoUpload();
+load();render();loadSyncCfg();startAutoUpload();updateStorageInfo();
 
 // ===== Image viewer =====
 function viewImg(src){
