@@ -2911,14 +2911,20 @@ function clearSubContrib(gi){
 /* ====== Copy ====== */
 function copyGroup(gi){
   const g = groups[gi];
-  const valid = validRows(g);
-  if(!valid.length){ toast('请先填写产品'); return; }
-  let txt = valid.map(r=>{
+  // 复制时只要有名称即可，不要求金额
+  const rows = g.rows.filter(r=>r.name.trim() && r.qty);
+  if(!rows.length){ toast('请先填写产品名称和数量'); return; }
+  let txt = rows.map(r=>{
     const q=n(r.qty), p=n(r.price), t=n(q*p);
-    return `${r.name}*${q}，${q}*${p}=${t}`;
+    if(r.price && p>0){
+      return `${r.name}*${q}，${q}*${p}=${t}`;
+    }else{
+      return `${r.name}*${q}`;
+    }
   }).join('\n');
-  let allTotal = valid.reduce((s,r)=>s+calc(r),0);
-  txt += '\n合计' + n(allTotal) + '元';
+  // 只对有金额的行计算合计
+  let allTotal = rows.reduce((s,r)=>s+calc(r),0);
+  if(allTotal>0) txt += '\n合计' + n(allTotal) + '元';
   doCopy(txt);
 }
 
