@@ -1513,9 +1513,9 @@ function syncPush(force=false){
       try{
         const now=Date.now();
         groups._syncTs=now;
-        // 从 IndexedDB 获取所有照片，包含在同步数据中
-        const photoMap = await dbGetAllPhotos();
-        const plain=JSON.stringify({_syncTs:now,groups,photos:photoMap});
+        // 同步只传文本数据（含照片 ID），不传照片本体
+        // 照片保存在各自设备的 IndexedDB 中，避免 data.json 过大导致 GitHub API 500 错误
+        const plain=JSON.stringify({_syncTs:now,groups});
         // 有密码则加密，否则明文
         let outStr=plain;
         if(syncCfg.secret){
