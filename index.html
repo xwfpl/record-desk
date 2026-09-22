@@ -1236,54 +1236,39 @@ async function pullLatest(){
   toastPersist('⏳ 正在从云端下载…');
   try{
     let rawText;
-    // 优先用 GitHub API 直接获取（始终最新，无 CDN 缓存延迟）
+    // 方案1：GitHub API 获取文件信息（小文件可直接拿到 content）
+    let apiData=null;
     try{
       toastPersist('⏳ 正在获取最新数据…');
-      const apiData=await ghApi(syncCfg.file);
-      if(apiData && apiData.content){
-        // API 返回 base64 编码内容
-        if(apiData.size > 1048576){
-          // 大文件 API 会截断，改用 raw URL + 时间戳防缓存
-          const ts=Date.now();
-          const rawUrl=`https://raw.githubusercontent.com/${syncCfg.user}/${syncCfg.repo}/main/${syncCfg.file}?t=${ts}`;
-          const ctrl=new AbortController();
-          const timer=setTimeout(()=>ctrl.abort(),60000);
-          const r=await fetch(rawUrl,{signal:ctrl.signal,cache:'no-store'});
-          clearTimeout(timer);
-          if(!r.ok) throw new Error('HTTP '+r.status);
-          rawText=await r.text();
-        }else{
-          // 小文件直接从 API base64 解码
-          rawText=decodeURIComponent(escape(atob(apiData.content)));
-        }
-      }else{
-        throw new Error('云端无数据');
-      }
-    }catch(e1){
-      console.warn('API 失败，尝试 raw URL:', e1.message);
-      toastPersist('⏳ 切换备用线路…');
-      // 备用：raw URL + 时间戳防缓存
+      apiData=await ghApi(syncCfg.file);
+    }catch(apiErr){
+      console.warn('API 获取失败:', apiErr.message);
+    }
+    
+    if(apiData && apiData.content && apiData.size<=1048576){
+      // 小文件直接从 API base64 解码
+      rawText=decodeURIComponent(escape(atob(apiData.content)));
+    }else{
+      // 大文件或 API 失败，用 raw URL 下载
       const ts=Date.now();
-      const rawUrl=`https://raw.githubusercontent.com/${syncCfg.user}/${syncCfg.repo}/main/${syncCfg.file}?t=${ts}`;
-      const ctrl2=new AbortController();
-      const timer2=setTimeout(()=>ctrl2.abort(),60000);
-      try{
-        const r2=await fetch(rawUrl,{signal:ctrl2.signal,cache:'no-store'});
-        clearTimeout(timer2);
-        if(!r2.ok) throw new Error('HTTP '+r2.status);
-        rawText=await r2.text();
-      }catch(e2){
-        clearTimeout(timer2);
-        // 最后备用：jsdelivr CDN
-        console.warn('raw URL 失败，尝试 CDN:', e2.message);
-        toastPersist('⏳ 切换 CDN 线路…');
-        const cdnUrl=`https://cdn.jsdelivr.net/gh/${syncCfg.user}/${syncCfg.repo}@main/${syncCfg.file}`;
-        const ctrl3=new AbortController();
-        const timer3=setTimeout(()=>ctrl3.abort(),60000);
-        const r3=await fetch(cdnUrl,{signal:ctrl3.signal,cache:'no-store'});
-        clearTimeout(timer3);
-        if(!r3.ok) throw new Error('HTTP '+r3.status);
-        rawText=await r3.text();
+      const sources=[
+        `https://raw.githubusercontent.com/${syncCfg.user}/${syncCfg.repo}/main/${syncCfg.file}?t=${ts}`,
+        `https://cdn.jsdelivr.net/gh/${syncCfg.user}/${syncCfg.repo}@main/${syncCfg.file}`,
+        `https://staticaly.com/${syncCfg.user}/${syncCfg.repo}/main/${syncCfg.file}`
+      ];
+      let dlErr=null;
+      for(let i=0;i<sources.length;i++){
+        try{
+          toastPersist(`⏳ 正在下载（线路${i+1}）…`);
+          rawText=await downloadFile(sources[i], {}, 60000, (loaded,total)=>{
+            if(total) toastPersist(`⏳ 下载中 ${Math.round(loaded/total*100)}%`);
+          });
+          if(rawText && rawText.length>10) break;
+        }catch(e){ dlErr=e; console.warn(`线路${i+1}失败:`,e.message); }
+      }
+      if(!rawText || rawText.length<10){
+        if(apiData===null) throw new Error('云端无数据，请先在手机端上传');
+        else throw new Error('下载失败：'+(dlErr?dlErr.message:'未知错误'));
       }
     }
 
@@ -1588,36 +1573,25 @@ async function loadVersionList(){
 }
 async function restoreVersion(commitSha){
   try{
-    const jsUrl=`https://cdn.jsdelivr.net/gh/${syncCfg.user}/${syncCfg.repo}@${commitSha}/${syncCfg.file}`;
-    console.log('开始下载:', jsUrl);
     toastPersist('⏳ 正在下载版本数据…');
     
     let rawText;
-    // 下载函数：fetch + text 整体超时，signal 贯穿全程
-    const downloadWithTimeout=async(url,timeoutMs)=>{
-      const ctrl=new AbortController();
-      const timer=setTimeout(()=>ctrl.abort(), timeoutMs);
+    const sources=[
+      `https://cdn.jsdelivr.net/gh/${syncCfg.user}/${syncCfg.repo}@${commitSha}/${syncCfg.file}`,
+      `https://raw.githubusercontent.com/${syncCfg.user}/${syncCfg.repo}/${commitSha}/${syncCfg.file}`
+    ];
+    let dlErr=null;
+    for(let i=0;i<sources.length;i++){
       try{
-        const r=await fetch(url, {signal:ctrl.signal, cache:'no-store'});
-        if(!r.ok) throw new Error('HTTP '+r.status);
-        const text=await r.text(); // signal 仍然活跃，超时能中断
-        clearTimeout(timer);
-        return text;
-      }catch(e){
-        clearTimeout(timer);
-        throw e;
-      }
-    };
-    
-    try{
-      rawText=await downloadWithTimeout(jsUrl, 60000);
-      console.log('下载完成, 长度:', rawText.length);
-    }catch(e1){
-      console.warn('jsdelivr 失败，尝试 raw URL:', e1.message);
-      toastPersist('⏳ CDN 不通，尝试备用线路…');
-      const rawUrl=`https://raw.githubusercontent.com/${syncCfg.user}/${syncCfg.repo}/${commitSha}/${syncCfg.file}`;
-      rawText=await downloadWithTimeout(rawUrl, 60000);
-      console.log('备用下载完成, 长度:', rawText.length);
+        toastPersist(`⏳ 正在下载（线路${i+1}）…`);
+        rawText=await downloadFile(sources[i], {}, 60000, (loaded,total)=>{
+          if(total) toastPersist(`⏳ 下载中 ${Math.round(loaded/total*100)}%`);
+        });
+        if(rawText && rawText.length>10) break;
+      }catch(e){ dlErr=e; console.warn(`线路${i+1}失败:`,e.message); }
+    }
+    if(!rawText || rawText.length<10){
+      throw new Error('下载失败：'+(dlErr?dlErr.message:'未知错误'));
     }
     
     toastPersist('⏳ 正在解析数据…');
