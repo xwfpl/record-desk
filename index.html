@@ -2264,9 +2264,13 @@ function syncBoxToParent(gi, bi, isInitial){
 
   b.linked = true;
 
-  // Ensure empty row at end
-  const last = g.rows[g.rows.length-1];
-  if(last && (last.name.trim()||last.qty||last.price)){
+  // 合并后按名称排序，让相似产品靠在一起（空行排到最后）
+  const emptyRows = g.rows.filter(r=>!r.name.trim() && !r.qty && !r.price);
+  const dataRows = g.rows.filter(r=>r.name.trim());
+  dataRows.sort((a,b)=>a.name.trim().toLowerCase().localeCompare(b.name.trim().toLowerCase(), 'zh'));
+  g.rows = [...dataRows, ...emptyRows];
+  // 确保末尾至少一个空行
+  if(!g.rows.length || (g.rows[g.rows.length-1].name.trim()||g.rows[g.rows.length-1].qty||g.rows[g.rows.length-1].price)){
     g.rows.push(newRow());
   }
 
