@@ -1947,9 +1947,9 @@ function delBox(gi,bi){
       const g = groups[gi];
       const boxId = b.id;
       g.rows = g.rows.filter(r=>{
-        if(r.fromBoxId === boxId){
+        if(r.fromBoxId === boxId || String(r.fromBoxId) === String(boxId)){
           // Collect contributions from OTHER boxes (exclude self)
-          const otherContribs = r.boxContrib ? Object.keys(r.boxContrib).filter(k=>k!==boxId) : [];
+          const otherContribs = r.boxContrib ? Object.keys(r.boxContrib).filter(k=>String(k)!==String(boxId)) : [];
           if(otherContribs.length > 0){
             let otherSum = 0;
             otherContribs.forEach(oid=>{ otherSum += parseFloat(r.boxContrib[oid])||0; });
@@ -2117,9 +2117,9 @@ function unlinkBoxFromParent(){
   const boxId = b.id;
   showConfirm('取消联动？', '母表中此子表的数量贡献会被移除', '🔓', ()=>{
     g.rows = g.rows.filter(r=>{
-      if(r.fromBoxId === boxId){
+      if(r.fromBoxId === boxId || String(r.fromBoxId) === String(boxId)){
         // Collect contributions from OTHER boxes (exclude self)
-        const otherContribs = r.boxContrib ? Object.keys(r.boxContrib).filter(k=>k!==boxId) : [];
+        const otherContribs = r.boxContrib ? Object.keys(r.boxContrib).filter(k=>String(k)!==String(boxId)) : [];
         if(otherContribs.length > 0){
           // Keep row, subtract this box's contribution
           let otherSum = 0;
@@ -2177,9 +2177,9 @@ function syncBoxToParent(gi, bi, isInitial){
   // Step 1: Remove old contributions from this box
   g.rows = g.rows.filter(r=>{
     // If this row was originally created by this box
-    if(r.fromBoxId === boxId){
+    if(r.fromBoxId === boxId || String(r.fromBoxId) === String(boxId)){
       // Collect contributions from OTHER boxes (exclude self)
-      const otherContribs = r.boxContrib ? Object.keys(r.boxContrib).filter(k=>k!==boxId) : [];
+      const otherContribs = r.boxContrib ? Object.keys(r.boxContrib).filter(k=>String(k)!==String(boxId)) : [];
       if(otherContribs.length > 0){
         // There are other boxes contributing — DON'T delete the row
         // Subtract this box's contribution = current qty - sum of other boxContrib
@@ -2911,9 +2911,11 @@ function clearSubContrib(gi){
 /* ====== Copy ====== */
 function copyGroup(gi){
   const g = groups[gi];
-  // 复制时只要有名称即可，不要求金额
+  // 复制时只要有名称即可，不要求金额；按名称排序让相似产品靠在一起
   const rows = g.rows.filter(r=>r.name.trim() && r.qty);
   if(!rows.length){ toast('请先填写产品名称和数量'); return; }
+  // 按名称排序（不区分大小写），相似产品排列在一起
+  rows.sort((a,b)=>a.name.trim().toLowerCase().localeCompare(b.name.trim().toLowerCase(), 'zh'));
   let txt = rows.map(r=>{
     const q=n(r.qty), p=n(r.price), t=n(q*p);
     if(r.price && p>0){
